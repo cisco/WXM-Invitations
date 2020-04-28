@@ -1,2 +1,2 @@
 # WXM-Invitations
-Send SMS and Email Inviatations for Cisco WXM
+Send SMS and Email Invitations for Cisco WXM
