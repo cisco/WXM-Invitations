@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="./img/favicon.ico" type="image/ico" sizes="16x16">
+    <title> ACM App</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&display=swap"
+        rel="stylesheet">
+
+    <link rel='stylesheet' type='text/css' media='screen' href="css/angularmaterial.css">
+    <link rel='stylesheet' type='text/css' media='screen' href="css/style.css">
+    
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
+    <script defer src="./js/all.min.js"></script>
+
+</head>
+<!-- on-load getting the token value from local-storage  -->
+
+<body onload="getDispatcherlist()">
+    <div class="container">
+        <div class="heading">
+            <h1>Create New Dispatch Configuration</h1>
+            <span onclick="logout()"><a class="logout" href="index.html">Logout <i class="fas fa-sign-out-alt"></i></a></span>
+        </div>
+        <div class="description">
+            <span>This tool will help you configure the setup required to send invites using Webex Experience
+                Management. Start by selecting a dispatch created in Experience Management and setup all required
+                modules below. Please refresh the page to update the list of Dispatches and update any recent changes made to dispatches.</span>
+        </div>
+        <div class="dispatcher-form">
+            <!-- get active dispatch question -->
+            <div class="form__group select-dispatcher-list">
+                <div class="get-questions">
+                    <div class="select">
+                        <label for="select" class="form__label">Dispatch </label>
+                        <select class="select-text" id="getdispatchers"
+                            onchange="getDisptachById(this.options[this.selectedIndex].getAttribute('questionId'))"
+                            required>
+                            <option value="" data-questionId="ss" id="selectoption"> Select </option>
+                        </select>
+                        <!-- No-dispatcher-error-msg -->
+                        <span id="error-dispatch-name" class="dispatch-error-msg">No dispatch
+                            available. Please check and create dispatch in WXM and try again.</span>
+                    </div>
+
+                </div>
+            </div>
+            <!-- API loading message symbols -->
+            <div id="icon-block">
+                <br>
+                <span><i class="fas fa-spinner fa-spin"></i> Please wait while we get the details...</span>
+            </div>
+            <div id="configuration-block">
+                <!-- Both SMS and Email Channel setup -->
+                <div class="form__group">
+                    <span class="subtitle">Channels Setup</span>
+                    <p>The selected dispatch uses the following channels to send invites. Please provide channel vendor
+                        details to ensure the invites are sent out correctly.</p>
+
+                </div>
+                <!--Custom SMTP Email field form setup-->
+                <form>
+                    <div id="email-block">
+                        <div class="display-hor">
+                            <div class="form__group  ">
+                                <span class="subtitle1 bottom-space">Email</span>
+                                <div class="select">
+                                    <label for="dispatch" class="form__label">Send
+                                        Email Using </label>
+                                    <select class="select-text" onchange="onEmailSelectChange()" id="smtpSelect"
+                                        required>
+                                        <option value="CustomSMTP" id="dispatch"> Custom SMTP </option>
+                                        <option value="SparkPost" id="dispatch"> Spark Post </option>
+                                        <!-- Add new Email Vendor name for dropdown selection -->
+                                    </select>
+
+
+                                </div>
+                                <span id="error-msg" class="error-msg"></span>
+                            </div>
+                            <!-- onclick popup will come based on which vendor selected in the dropdown  -->
+                            <div class="form__group">
+                                <span id="myBtn" onclick="getemailvendorbyname(event)">Add Details For Custom
+                                    SMTP</span>
+                            </div>
+                        </div>
+                        <!-- Email preview value from API -->
+                        <div class="emailEditedValue">
+                            <h4> Sender Name </h4>
+                            <span id="setSenderName"></span>
+                            <h4> Sender Email Address </h4>
+                            <span id="setEmailAddress"></span>
+                            <h4> SMTP Server </h4>
+                            <span id="setSmtpServer"></span>
+                            <h4> SMTP Username </h4>
+                            <span id="setSmtpUsername"></span>
+                            <h4> SMTP Password </h4>
+                            <span id="setSmtpPassword">*****</span>
+                            <h4> Port </h4>
+                            <span id="setPort"></span>
+                            <h4> Enable SSL </h4>
+                            <span id="setEnableSsl"></span>
+                        </div>
+                        <!-- Spark Post preview value from API -->
+                        <div class="SparkPostValueEdited">
+                            <h4> URL </h4>
+                            <span id="setSparkUrl"></span>
+                            <h4> Api Key </h4>
+                            <span id="setSparkApiKey"></span>
+                            <h4> Sender Email </h4>
+                            <span id="setSparkSenderEmail"></span>
+                            <h4> Sender Name </h4>
+                            <span id="setSparkSenderName"></span>
+                            <h4> Batch Size </h4>
+                            <span id="setSparkBatchSize"></span>
+                        </div>
+                        <!-- New Vendor Read Only View -->
+                        <!-- <div class="newVendorEdited">
+                            .....
+                                <h4> URL </h4>
+                                <span id="newVendorURL"></span>
+                            .....
+                        </div> -->
+                    </div>
+                    <!-- Custom sms form field -->
+                    <div id="sms-block">
+                        <span class="subtitle1">SMS(Mobile)</span>
+                        <div class="display-hor">
+                            <div class="form__group">
+                                <div class="select">
+                                    <label for="send-sms-using" class="form__label">Send SMS Using </label>
+                                    <select id="getVendorSms" onchange="onSelectChangesms()"
+                                        class="select-text questionairres" required>
+                                        <option value="MessageBird" id="select">Message Bird</option>
+                                        <option value="customSMS" id="select">Custom SMS</option>
+                                        <!-- Add new Email Vendor name for dropdown selection -->
+                                    </select>
+
+                                    <span id="error-msg1" class="error-msg"></span>
+                                </div>
+                            </div>
+                            <!-- onclick popup will come based on which vendor selected in the dropdown  -->
+                            <div class="form__group  ">
+                                <span id="myBtn1" onclick="getsmsvendorbyname(event)">Edit Details For Custom SMS</span>
+                            </div>
+                        </div>
+                        <!-- Custom SMS preview value from API -->
+                        <div class="smsEditedValue">
+                            <h4> Custom SMS URL </h4>
+                            <span id="setSmsurl"></span>
+                        </div>
+                        <!-- Message Bird preview value from API -->
+                        <div class="MessageBird">
+                            <h4> Message Bird URL </h4>
+                            <span id="setMessageBird"></span>
+                            <h4> AccessKey </h4>
+                            <span id="setAccessKey"></span>
+                            <h4> Originator </h4>
+                            <span id="setOriginator"></span>
+                            <h4> Data Coding </h4>
+                            <span id="setMultiLanguage"></span>
+                            <h4> ShortCode </h4>
+                            <span id="setShortCode"></span>
+                           
+                        </div>
+                    </div>
+                    <!-- Adding the Static response for selected questions Prefill  -->
+                    <div class="form__group static-response">
+                        <span class="subtitle">STATIC RESPONSES</span>
+                        <p>Setup static responses for pre-fill questions from the questionnaire. Static should be added
+                            for
+                            pre-fills where response data will not be available in the data file.</p>
+
+                        <div class="static-resp-div">
+                            <!-- Staff prefill dropdown  -->
+                            <div id="buildyourform">
+                                <div class="fieldwrapper" data-questionid="5e578b7d30bb2fd60c1f9855" id="field1">
+                                    <div class="form__group" id="select-response-static">
+                                        <label for="send-sms-using" class="form__label">Prefill Question </label>
+                                    </div>
+                                    <!-- static response text-box   -->
+                                    <div class="form__group">
+                                        <label for="send-sms-using" class="form__label">Static Response </label>
+                                        <input type="text" placeholder="Static Response" id="response-value"
+                                            name="value" value="" class="fieldname form__field" required="">
+
+                                        <span id="btn-addfield"><i class="far fa-plus-square"></i></span>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <!-- Adding the row of  selected staff prefill and static response  -->
+                            <div id="buildyourform1">
+
+                            </div>
+                            <span id="static-response-error"> Question prefill and Static response value is
+                                required</span>
+
+                        </div>
+                    </div>
+                    <!-- Notification block for noftification setup -->
+                    <div class="form__group notification-setup">
+                        <span class="subtitle">NOTIFICATION SETUP</span>
+                        <p>Add email IDs of people who should receive notification emails if anything goes wrong.
+                            You
+                            may
+                            decide to add a different set of email IDs for different levels of issues based on its
+                            severity.
+                        </p>
+                        <!-- Debug issue noftification form field -->
+                        <div class="form__group">
+                            <label for="debug-issue" class="form__label"> Send Debug Issue Notifications To </label>
+                            <textarea type="text" id="d-notification" class="form__field resize"
+                                placeholder="Enter the Email Id"></textarea>
+                            <span id="error-d" class="error-noti">Some email(s) are in incorrect
+                                email format. Please check and try again.</span>
+                            <span class="info">You can add multiple email IDs seprated by “;”</span>
+                        </div>
+                        <!-- Info issue noftification form field -->
+                        <div class="form__group">
+                            <label for="info-notification" class="form__label"> Send Info Notifications To </label>
+                            <textarea type="text" id="i-notification" class="form__field resize"
+                                placeholder="Enter the Email Id"></textarea>
+                            <span id="error-i" class="error-noti">Some email(s) are in incorrect
+                                email format. Please check and try again.</span>
+                            <span class="info">You can add multiple email IDs seprated by “;”</span>
+                        </div>
+                        <!-- Send warning issue noftification form field -->
+                        <div class="form__group  ">
+                            <label for="info-notification" class="form__label"> Send warning Notifications To
+                            </label>
+                            <textarea type="text" id="w-notification" class="form__field resize"
+                                placeholder="Enter the Email Id"></textarea>
+                            <span id="error-w" class="error-noti">Some email(s) are in incorrect
+                                email format. Please check and try again.</span>
+                            <span class="info">You can add multiple email IDs seprated by “;”</span>
+                        </div>
+                        <!-- Send error issue noftification form field -->
+                        <div class="form__group  ">
+                            <label for="error-notification" class="form__label"> Send Error Notifications To
+                            </label>
+                            <textarea type="text" id="e-notification" class="form__field resize"
+                                placeholder="Enter the Email Id"></textarea>
+                            <span id="error-e" class="error-noti">Some email(s) are in incorrect
+                                email format. Please check and try again.</span>
+                            <span class="info">You can add multiple email IDs seprated by “;”</span>
+                        </div>
+                        <!-- Send Fatal issue noftification form field -->
+                        <div class="form__group  ">
+                            <label for="fatal-issue" class="form__label"> Send Fatal Issue Notifications To </label>
+                            <textarea type="text" id="f-notification" class="form__field resize"
+                                placeholder="Enter the Email Id"></textarea>
+                            <span id="error-f" class="error-noti">Some email(s) are in incorrect
+                                email format. Please check and try again.</span>
+                            <span class="info">You can add multiple email IDs seprated by “;”</span>
+                        </div>
+                    </div>
+                    <!-- Queue block for Queue setup -->
+                    <div class="form__group queue-status">
+                        <span class="subtitle">QUEUE SETUP</span>
+                        <p>Details of the Azure or AWS queue to send out the invites as setup in Experience Management.
+                        </p>
+                        <div class="form__group">
+                            <!-- Showing the queue vendor details -->
+                            <div class="select">
+                                <label for="Azure" class="form__label">Queue Vendor</label>
+                                <p id="Queue-Vendor-name"></p>
+                                <span id="queue-vendor-name-error">Details unavailable. Please check this in Experience
+                                    Management.</span>
+
+                            </div>
+                        </div>
+                        <!-- Showing the Storage Account details -->
+                        <div class="form__group  ">
+                            <label for="storage-account" class="form__label"> Storage Account Connection String
+                            </label>
+                            <p id="Storage-Account"></p>
+                            <span id="storage-account-error">Details unavailable. Please check this in Experience
+                                Management.</span>
+                        </div>
+                    </div>
+                    <!-- Send the updated dispatcher request to the API Static response and notification  -->
+                    <div class="download-btn">
+                        <button id="generate-dispatcher" onclick="saveChanges(event)">Save Changes</button>
+
+                    </div>
+                    <span class="error-save-vendor">Some errors need
+                        resolution. Please check, fix them and try again.</span>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Custom SMTP model Popup -->
+    <div id="customSmtpOpenPopup" class="modal">
+
+        <!-- Modal content -->
+        <div class="modal-content">
+            <div class="heading">
+                <h1>Update Custom SMTP Setting</h1>
+            </div>
+            <p>You can update the master Custom SMTP settings as stored in the central database below. Please make
+                any change carefully as updating these details may impact any other dispatch using this SMTP. To
+                ensure
+                things do not break, please check all other dispatches configured to use this SMTP.</p>
+            <!-- CustomSMPT form feild-->
+            <form id="submitForm">
+                <div class="form-properties">
+                    <div class="form__group  ">
+                        <label for="getSenderName" class="form__label"> Sender Name </label>
+                        <input type="text" id="getSenderName" name="SenderName" value="" class="form__field" required
+                            placeholder="Enter Sender Name">
+                    </div>
+
+                    <div class="form__group  ">
+                        <label for="getEmailAddress" class="form__label"> Sender Email Address </label>
+                        <input type="email" id="getEmailAddress" name="SenderAddress" value="" class="form__field"
+                            required placeholder="Enter Sender Email Address">
+                    </div>
+                    <div class="form__group  ">
+                        <label for="getSmtpServer" class="form__label"> SMTP Server </label>
+                        <input type="text" id="getSmtpServer" name="SmtpServer" value="" class="form__field" required
+                            placeholder="Enter SMTP Server">
+                    </div>
+                    <div class="form__group  ">
+                        <label for="getSmtpUsername" class="form__label"> SMTP Username </label>
+                        <input type="text" id="getSmtpUsername" name="SmtpUsername" value="" class="form__field"
+                            required placeholder="Enter SMTP Username">
+                    </div>
+                    <div class="form__group  ">
+                        <label for="getSmtpPassword" class="form__label"> SMTP Password </label>
+                        <input type="password" id="getSmtpPassword" name="SmtpPassword" value="" class="form__field"
+                            required placeholder="Enter SMTP Password">
+                    </div>
+                    <!-- Math.abs will return whole number value-->
+                    <div class="form__group  ">
+                        <label for="getPort" class="form__label">Port</label>
+                        <input type="number" min="0" oninput="this.value = Math.abs(this.value)" id="getPort"
+                            onPaste="return false" name="Port" value="" class="form__field" required
+                            placeholder="Enter Port">
+                    </div>
+                    <div class="form__group">
+                        <!-- True or false drop down select value -->
+                        <div class="select">
+                            <label for="getEnableSsl" class="form__label">Enable SSL </label>
+                            <select class="select-text" id="getEnableSsl" name="SSL" value="" required>
+                                <option value="false" id="Azure"> False </option>
+                                <option value="true" id="select"> True </option>
+                            </select>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="buttons">
+                    <div><button onclick="vendorEmailUpdateAPI(event)" class="button-save">Save Changes</button></div>
+                    <div><button id="CustomSmptPopupCancel" class="button-cancel">Cancel</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    </div>
+    <!-- Custom SMS model Popup -->
+    <div id="customSmsOpenPopup" class="modal">
+
+        <!-- Modal content -->
+        <div class="modal-content">
+            <div class="heading">
+                <h1>Update Custom SMS Setting</h1>
+            </div>
+            <p>You can update the master Custom SMS settings as stored in the central database below. Please make
+                any change carefully as updating these details may impact any other dispatch using this SMS Vendor. To
+                ensure things do not break, please check all other dispatches configured to use this Custom SMS.</p>
+            <form id="smsForm">
+                <div class="form__group  ">
+                    <label for="getSmsurl" class="form__label"> Custom SMS URL </label>
+                    <textarea type="text" id="getSmsurl" name="Url" value="" class="form__field resize"
+                        placeholder="Custom SMS URL"></textarea>
+                </div>
+                <!-- Save and Cancel button -->
+                <div class="buttons">
+                    <div><button class="button-save" onclick="vendorSmsUpdateAPI(event)">Save Changes</button></div>
+                    <div><button id="customSmsPopupCancel" class="button-cancel">Cancel</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Message Bird model Popup -->
+    <div id="messageBirdOpenPopup" class="modal">
+
+        <!-- Modal content -->
+        <div class="modal-content">
+            <div class="heading">
+                <h1>MessageBird</h1>
+            </div>
+            <p>You can update the master MessageBird SMS settings as stored in the central database below. Please make
+                any change carefully as updating these details may impact any other dispatch using this SMS Vendor. To
+                ensure things do not break, please check all other dispatches configured to use this Message Bird.</p>
+            <form id="smsmessagebirdForm">
+                <div class="form__group  ">
+                    <label for="getMessageUrl" class="form__label"> URL </label>
+                    <textarea type="text" id="getMessageUrl" name="Url" value="" class="form__field resize"
+                        placeholder="Enter URL"></textarea>
+                </div>
+                <div class="form__group  ">
+                    <label for="getAccessKey" class="form__label">AccessKey</label>
+                    <input type="text" id="getAccessKey" name="AccessKey" value="" class="form__field" required
+                        placeholder="Enter AccessKey">
+                </div>
+                <div class="form__group  ">
+                    <label for="getOriginator" class="form__label">Originator</label>
+                    <input type="text" id="getOriginator" name="Originator" value="" class="form__field" required
+                        placeholder="Enter Originator">
+                </div>
+                <div class="form__group">
+                    <!-- True or false drop down select value -->
+                    <div class="select">
+                        <label for="getMultiLanguage" class="form__label">To send SMS in multiple languages, select Unicode below. Please note, unicode bundles characters for multiple languages, which will increase the message size and may incur additional costs per SMS based on the region and SMS provider. For SMS in english only, select Plain. </label>
+                        <select class="select-text" id="getMultiLanguage" name="DataCoding" value="" required>
+                            <option value="plain" selected id="plain"> Plain </option>
+                            <option value="unicode" id="select"> Unicode </option>
+                            <option value="auto" id="select"> Auto </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form__group  ">
+                    <label for="getShortCode" class="form__label">ShortCode(Optional)</label>
+                    <input type="text" id="getShortCode" name="ShortCode" value="" class="form__field" required
+                        placeholder="Enter ShortCode">
+                </div>
+               
+                <!-- Save and Cancel button -->
+                <div class="buttons">
+                    <div><button class="button-save" onclick="venderMessagebird(event)">Save Changes</button></div>
+                    <div><button id="messagebirdPopupCancel" class="button-cancel">Cancel</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Spark Post model Popup -->
+    <div id="sparkPostOpenPopup" class="modal">
+
+        <!-- Modal content -->
+        <div class="modal-content">
+            <div class="heading">
+                <h1>Spark Post</h1>
+            </div>
+            <p>You can update the master Spark Post settings as stored in the central database below. Please make
+                any change carefully as updating these details may impact any other dispatch using this Email Vendor. To
+                ensure things do not break, please check all other dispatches configured to use this Spark Post.</p>
+            <form id="smsSparkPostForm">
+                <div class="form__group">
+                    <label for="getSparkUrl" class="form__label"> URL </label>
+                    <textarea type="text" id="getSparkUrl" name="Url" value="" class="form__field resize"
+                        placeholder="Enter URL"></textarea>
+                </div>
+                <div class="form__group">
+                    <label for="getSparkApiKey" class="form__label">Api Key</label>
+                    <input type="text" id="getSparkApiKey" name="ApiKey" value="" class="form__field" required
+                        placeholder="Enter Api Key">
+                </div>
+                <div class="form__group">
+                    <label for="getSparkSenderEmail" class="form__label">Sender Email</label>
+                    <input type="email" id="getSparkSenderEmail" name="SenderEmail" value="" class="form__field"
+                        required placeholder="Enter Sender Email">
+                </div>
+                <div class="form__group  ">
+                    <label for="getSparkSenderName" class="form__label">Sender Name</label>
+                    <input type="text" id="getSparkSenderName" name="SenderName" value="" class="form__field" required
+                        placeholder="Enter Sender Name">
+                </div>
+                <div class="form__group">
+                    <label for="getSparkBatchSize" class="form__label">Batch Size</label>
+                    <input type="number" min="0" oninput="this.value = Math.abs(this.value)" onPaste="return false"
+                        id="getSparkBatchSize" name="BatchSize" value="" class="form__field" required
+                        placeholder="Enter Batch Size">
+                </div>
+                <!-- Save and Cancel button -->
+                <div class="buttons">
+                    <div><button class="button-save" onclick="vendorSparkPost(event)">Save Changes</button></div>
+                    <div><button id="sparkPostPopupCancel" class="button-cancel">Cancel</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Add new vendor in a modal here -->
+    <!-- <div id="newVendorOpenPopup" class="modal">
+          Modal content
+         <div class="modal-content">
+            <div class="heading">
+                <h1>New Vendor</h1>
+            </div>
+             <form id="newVendorFormId">
+                ...............
+                <div class="form__group">
+                    <label for="vendorAPIKey" class="form__label">Api Key</label>
+                    <input type="text" id="vendorAPIKey" name="ApiKey" value="" class="form__field" required
+                        placeholder="Enter Api Key">
+                </div>
+                 ...............
+
+             </form>
+        </div>
+    </div> -->
+</body>
+<script src="js/main.js"></script>
+<script>
+    // Get the modal element
+    var customSmtpOpen = document.getElementById("customSmtpOpenPopup"); //Open Custom SMTP Popup
+    var customSmsOpen = document.getElementById("customSmsOpenPopup"); //Open Custom SMS Popup
+    var messageBirdOpen = document.getElementById("messageBirdOpenPopup"); //Open Message Bird Popup
+    var sparkPostOpen = document.getElementById("sparkPostOpenPopup"); //Open sparPost Popup
+    /**
+     * Add the new vendor modal with right ID
+     * */
+
+    // Get the button that closes the modal
+    var CustomSmptCancel = document.getElementById("CustomSmptPopupCancel");
+    var CustomSmsCancel = document.getElementById("customSmsPopupCancel");
+    var messagebirdCancel = document.getElementById("messagebirdPopupCancel");
+    var sparkPostCancel = document.getElementById("sparkPostPopupCancel");
+
+    // When the user clicks on button (x), close the modal
+    CustomSmptCancel.onclick = function (event) {
+        event.preventDefault();
+        customSmtpOpen.style.display = "none";
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".form-error-msg").hide();
+        document.getElementById("getSenderName").value = "";
+        document.getElementById("getEmailAddress").value = "";
+        document.getElementById("getSmtpServer").value = "";
+        document.getElementById("getSmtpUsername").value = "";
+        document.getElementById("getSmtpPassword").value = "";
+        document.getElementById("getPort").value = "false";
+    }
+    CustomSmsCancel.onclick = function (event) {
+        event.preventDefault();
+        customSmsOpen.style.display = "none";
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".form-error-msg").hide();
+        document.getElementById("getSmsurl").value = "";
+    }
+
+    messagebirdCancel.onclick = function (event) {
+        event.preventDefault();
+        messageBirdOpen.style.display = "none";
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".form-error-msg").hide();
+        document.getElementById("getMessageUrl").value = "";
+        document.getElementById("getAccessKey").value = "";
+        document.getElementById("getOriginator").value = "";
+        document.getElementById("getShortCode").value = "";
+    }
+    sparkPostCancel.onclick = function (event) {
+        event.preventDefault();
+        sparkPostOpen.style.display = "none";
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".form-error-msg").hide();
+        document.getElementById("getSparkUrl").value = "";
+        document.getElementById("getSparkApiKey").value = "";
+        document.getElementById("getSparkSenderEmail").value = "";
+        document.getElementById("getSparkSenderName").value = "";
+        document.getElementById("getSparkBatchSize").value = "";
+    }
+
+    // email vendorname display popup
+    function getemailvendorbyname(event) {
+        event.preventDefault();
+
+        if (document.getElementById('smtpSelect').value == "CustomSMTP") {
+            getCustomSMTPData();
+            $("body").css({
+                "overflow": "hidden"
+            });
+            customSmtpOpen.style.display = "block";
+        }
+        if (document.getElementById('smtpSelect').value == "SparkPost") {
+            getSparkPostData();
+            $("body").css({
+                "overflow": "hidden"
+            });
+            sparkPostOpen.style.display = "block";
+        }
+
+        // Add the new email vendor popup trigger here
+    }
+
+    // sms vendorname display popup
+
+    function getsmsvendorbyname(event) {
+        event.preventDefault();
+
+        if (document.getElementById('getVendorSms').value == "MessageBird") {
+            getMessageBirdData();
+            $("body").css({
+                "overflow": "hidden"
+            });
+            messageBirdOpen.style.display = "block";
+        }
+        if (document.getElementById('getVendorSms').value == "customSMS") {
+            getCustomSMSData();
+            $("body").css({
+                "overflow": "hidden"
+            });
+            customSmsOpen.style.display = "block";
+        }
+
+        // Add the new sms vendor popup trigger here
+    }
+</script>
+
+
+</html>

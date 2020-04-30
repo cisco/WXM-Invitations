@@ -1,0 +1,370 @@
+.container {
+    display: flex;
+    flex-wrap: nowrap;
+    margin: 30px;
+    flex-wrap:wrap;
+}
+span, p{
+    font-size:14px
+}
+.heading{
+    margin-right: auto;
+    width: 50%;
+};
+.upload-btn{
+    width: 50%;
+    margin-left: auto;
+}
+.header-sign-in{
+    text-align: center;
+    font-size: 24px;
+}
+.heading h1{
+    margin:0;
+    font: 300 21px/30px Open Sans, sans-serif;
+}
+h4 {
+    font-size: 14px;
+    font-weight: 400;
+}
+.login .form__group {
+    text-align: center;
+}
+.login label.form__label {
+    left: 139px;
+    position: relative;
+}
+#email-block {
+    margin-bottom: 20px;
+}
+button{
+    font-size: 14px;
+}
+span#setMultiLanguage {
+    text-transform: capitalize;
+}
+.add-btn button {
+    float: right;
+    min-height: 36px;
+    min-width: 70px;
+    line-height: 36px;
+    box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+    background-color: #00bceb;
+    border-radius: 3px;
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    outline: none;
+    padding: 0 16px;
+    font-family: "Open Sans", sans-serif;
+    text-align: center;
+    margin-top: 42px;
+    margin-left: 30px;
+}
+
+.smsEditedValue span, .emailEditedValue span, .MessageBird span, .SparkPostValueEdited span {
+    color: #ccc;
+}
+.smsEditedValue, .MessageBird, .emailEditedValue, .SparkPostValueEdited{
+    display:none
+}
+.download-btn button {
+    float: left;
+    margin-top:30px;
+    min-height: 48px;
+    min-width: 120px;
+    line-height: 36px;
+    box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+    background-color: #00bceb;
+    border-radius: 3px;
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    outline: none;
+    padding: 0 16px;
+    font-family: "Open Sans", sans-serif;
+    text-align: center;
+}
+.description{
+    width:100%;
+    margin-top:30px;
+}
+.bottom-space{
+    margin-bottom: 20px !important;
+}
+.dispatcher-form{
+    width:100%;
+}
+
+.subtitle{
+    font: 700 14px/20px Open Sans, sans-serif;
+    text-transform: uppercase;
+    display: block;
+}
+.subtitle1{
+    font: 700 14px/20px Open Sans, sans-serif;
+    display: block;
+}
+.pre-label{
+    font: 400 14px/20px Open Sans, sans-serif;
+    margin-bottom: 10px;
+    float: left;
+    display: block;
+}
+.info{
+    font: 400 12px/20px Open Sans, sans-serif;
+    display: block;
+    color: #c1c1c1;
+}
+/* switch style */
+
+
+.switch-input {
+    display: none;
+  }
+  .switch-label {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    font-weight: 500;
+    text-align: left;
+    margin: 3px 36px 7px 0;
+    float: right;
+  }
+  .switch-label:before, .switch-label:after {
+    content: "";
+    position: absolute;
+    margin: 0;
+    outline: 0;
+    top: 50%;
+    -ms-transform: translate(0, -50%);
+    -webkit-transform: translate(0, -50%);
+    transform: translate(0, -50%);
+    -webkit-transition: all 0.3s ease;
+    transition: all 0.3s ease;
+  }
+  .switch-label:before {
+    left: 1px;
+    width: 34px;
+    height: 14px;
+    background-color: #9E9E9E;
+    border-radius: 8px;
+  }
+  .switch-label:after {
+    left: 0;
+    width: 20px;
+    height: 20px;
+    background-color: #FAFAFA;
+    border-radius: 50%;
+    box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.14), 0 2px 2px 0 rgba(0, 0, 0, 0.098), 0 1px 5px 0 rgba(0, 0, 0, 0.084);
+  }
+  
+  .switch-input:checked + .switch-label:before {
+   background-color: #00bceb;
+  }
+  .switch-input:checked + .switch-label:after {
+    background-color: #00bceb;
+    -ms-transform: translate(80%, -50%);
+    -webkit-transform: translate(80%, -50%);
+    transform: translate(80%, -50%);
+  }
+  .display-hor {
+    display: flex;
+    position:relative
+}
+.top-space {
+    margin-top: 28px;
+    margin-left: 40px;
+}
+.display-hor1 div {
+    display: inline-block;
+}
+#configuration-block{
+    display:none;
+    margin-top: 30px;
+}
+.static-response{
+    margin-top: 30px;
+}
+.queue-status{
+    margin-top: 30px; 
+}
+#email-block, .errorUrl, #sms-block, #icon-block{
+    display:none
+}
+
+.display-hor div:last-child {
+    margin-top: auto;
+}
+.display-hor > div:last-child span {
+    color: #00bceb;
+    cursor: pointer;
+    display: block;
+    bottom: 11px;
+    position: relative;
+    margin-left: 30px;
+}
+.error-msg{
+    font-size: 12px;
+    color: #ff0000;
+    position: absolute;
+    bottom: -7px;
+    left: 0;
+    
+}
+#static-response-error {
+    position: absolute;
+    top: 77px;
+    color: #EF5451;
+    display: none;
+    margin-left: 0;
+}
+.error-noti, .error-save-vendor{
+    font-size: 11px;
+    color: #ff0000;
+display: none;
+    
+}
+.download-btn{
+    width: 100%;
+    display: inline-block;
+}
+#show-error{
+    font-size: 11px;
+    color: #ff0000;
+    display: none;
+}
+span#myBtn {
+    top: -9px;
+}
+.form-error-msg{
+    font-size: 11px;
+    color:#ff0000;
+    display: block;
+}
+.dispatch-error-msg{
+    font-size: 11px;
+    color:#ff0000;
+    display: none;  
+}
+.form-properties {
+    height: 420px;
+    overflow: auto;
+}
+#storage-account-error, #queue-vendor-name-error{
+    font-size: 11px;
+    color:#ff0000;
+    display: none;
+}
+/* The Modal (background) */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    padding-top: 50px; /* Location of the box */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+  }
+  
+  /* Modal Content */
+  .modal-content {
+    background-color: #fefefe;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 50%;
+  }
+  
+  /* The Close Button */
+  .close {
+    color: #aaaaaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+  
+  .close:hover,
+  .close:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .buttons{
+      display: flex;
+      direction: rtl;
+  }
+  button.button-cancel {
+    margin-right: 15px;
+}
+#Storage-Account {
+    width: 450px;
+    color: #c1c1c1;
+    word-break: break-all;
+}
+#Queue-Vendor-name {
+    color: #c1c1c1;
+}
+  .fieldwrapper {
+    display: flex;
+  }
+  input.fieldname.form__field {
+    margin: 0px 20px 20px 0;
+}
+select.fieldtype.select-text {
+    margin: 0px 20px 20px 0;
+}
+.static-resp-div{
+    position: relative;
+}
+#btn-addfield
+{
+    margin: 0px 20px 20px 0;
+}
+.remove-field {
+    position: relative;
+    top: 10px;
+    cursor: pointer;
+    color: #EF5451;
+    left: 3px;
+}
+#icon-block{
+display: block;
+}
+#btn-addfield{
+    position: relative;
+    top: 3px;
+    cursor: pointer;
+    color: #EF5451; 
+}
+.select-dispatcher-list{
+    display:none;
+}
+.emailEditedValue, .SparkPostValueEdited{
+    margin-bottom: 20px;
+}
+.download-btn button:disabled, .download-btn
+button[disabled]{
+    cursor: not-allowed;
+    opacity: 40%;
+}
+#buildyourform .fieldwrapper .form__group:last-child {
+    display: none;
+}
+.logout {
+    float: right;
+    position: absolute;
+    right: 30px;
+    color: #00bceb;
+    top: 35px;
+    cursor: pointer;
+    text-decoration: none;
+}
