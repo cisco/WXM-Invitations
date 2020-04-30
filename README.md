@@ -1,5 +1,5 @@
-# WXM-Invitations
-Send SMS and Email Invitations for Cisco WXM
+# Cisco Webex Experience Management-Invitations Delivery
+Send SMS and Email Invitations for Cisco Webex Experience Management
 
 About
 
