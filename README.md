@@ -15,7 +15,18 @@ Global delivery invitation management enables a personalized experience for rece
 
 ## Key benefits and features
 
-![](https://cloudcherry.com/docs/delivery-Policy-screen-shot/invitations-delivery-architecture/invitation-delivery-architecture-step1.jpg)
+| Features   |  Benefits |
+|---------------------|------------|
+| Omni-channel survey invitation dispatch | Send invitations across multiple journey channels, giving end customers the choice of how they can interact with your business  |
+| Centralized delivery policy management via delivery templates  | Manage organizational corporate communication policies for invitation dispatch such as time of day communication windows, channels for communication, and campaign workflow rules for follow-up messages. |
+| Global data centres and data residency (PII and outbound delivery processed in sovereign territories) | 	Businesses operating in countries with government or industry regulations that require PII to be processed in region can run a fully complaint solution.  |
+| Single instance hosted PII processing (no PII required by Experience Management, only hashed data needs to be transmitted) | Run a completely secure, zero PII solution with a private cloud instance that processes PII and dispatches invitations  |
+|  Extensible architecture that supports ETL processing with serverless AWS Lambda or Azure functions for a scalable pipeline |  Flexibility to customize and set up a big data processing pipeline with custom business logic based on the unique needs of your business  |
+|  Content template upload and preview | Upload and test personalized content templates with easy substitutions that deliver improved response rates   |
+|  Schedule-less delivery pipeline |  Just like FedEx, tee up delivery batches. Based on your delivery policy, these get queued up, and sent off in-flight.  |
+| Real-time notifications about bad data during ingress  |  Quickly take action to address bad data issues at the source system of your data pipeline.  |
+| EOD invitation downloadable reports with progress/success/failure status  |   Periodically review dispatch performance to continuously tune content templates, dispatch policies and survey logic to optimize response rates. |
+
 
 ## High level module workflow
 
