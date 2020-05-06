@@ -46,10 +46,13 @@ The various components which are a part of the Invitations module is as given be
     2. Custom SMS: Custom SMS can be set up by configuring the SMS webhook provided by 3rd party SMS vendors or by integrating with 3rd party SMS vendor APIs (for ex: Messagebird, Webtext, Nexmo etc). Using Custom SMS, the dispatcher component processes and sends one SMS at a time.
     3. Bulk Email: Bulk email can be set up by configuring a 3rd party email vendors details. This is an API integration done with Email vendors such as Sparkpost, and others who provides APIs that accepts multiple email requests in one API call. This is particularly used while you are setting up the Invitations module to work at a very large-scale sending millions of emails a day.
 
+We have included a reference implementation with Messagebird for Custom SMS and with Sparkpost for Bulk email as a part of this open sourced code base. Our documentation provides more information how you may extend this module to integrate with other SMS and email vendors.
+
 Please refer the following documents for consuming this open sourced code base and completing the deployment of the single instance private cloud module.
  - Webex Experience Management invitations Module Architecture - This document details the architecture of the Invitations module in depth. Link -  https://cloudcherry.com/docs/cxsetup/guides/partnerarchitecture/
  - Partner hosted infra provisioning doc - This document explains how to provision the infrastructure required to deploy the Partner hosted components of the Invitations module. Link -  https://cloudcherry.com/docs/cxsetup/guides/partnerinfra/
  - Partner hosted Module deployment guide - This document explains how to deploy the partner hosted components of the invitations module once the infra is provisioned. Link -  https://cloudcherry.com/docs/cxsetup/guides/partnerdeployment/
 
+Please note that this version supports deployment on Microsoft Azure Private cloud. We will be releasing an update with support for AWS private cloud before end of May 2020. The new version planned will also have “Notifications” feature which is currently unavailable in this version.
 
 
