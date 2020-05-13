@@ -4,9 +4,9 @@
 var isProduction = false;
 
 /**
- * custom url that can be set using localstorage for testing. This should not be used in production
+ * custom url that can be set using sessionStorage for testing. This should not be used in production
  */
-var customBaseURL = localStorage.getItem("customBaseURL");
+var customBaseURL = sessionStorage.getItem("customBaseURL");
 
 
 var BASE_URL = "https://solutions-dev.getcloudcherry.com:8801";
@@ -62,6 +62,18 @@ var customSmtp = {
     port: "#getPort",
 };
 
+var notificationForm = {
+    "d-notification":"#d-notification",
+    "i-notification":"#i-notification",
+    "w-notification":"#w-notification",
+    "e-notification":"#e-notification",
+    "f-notification":"#f-notification"
+}
+
+var superAdminform ={
+    "admin-notification-multi-email":"#admin-notification-multi-email"
+}
+
 /**
  * Required validation will run of these elements
  */
@@ -85,6 +97,15 @@ var fieldsWithRequiredValidators = [
  * Email validator will run on these elements
  */
 var fieldsWithEmailValidators = ["#getEmailAddress", "#getSparkSenderEmail"];
+
+/**
+ * Multi Email notification validation no validator will run on these elements
+ */
+
+var fieldsWithMultiEmailValidators = ["#d-notification", "#i-notification","#w-notification","#e-notification","#f-notification"];
+
+var fieldSuperAdminNotificationValidator = ["#admin-notification-multi-email"]
+
 var prefillArrayValue;
 //Global variable declaration
 var staffPrefillArray = [];
@@ -140,6 +161,32 @@ function required(element) {
     }
 }
 
+//Notification email validation
+function notificationEmailValidation(element){
+    var value = element.value;
+if (value !== "" && validate(value) === false){
+  $(element).closest('.form__group').find('.notification-error').remove();
+  $(element).after(`<span class="form-error-msg notification-error">Some email(s) are in incorrect
+  email format. Please check and try again.</span>`);
+  $("#generate-dispatcher").attr("disabled", true);
+  document.querySelector(".error-save-vendor").style.display = "block"
+}else{
+  $(element).closest('.form__group').find('.notification-error').remove();
+  document.querySelector(".error-save-vendor").style.display = "none"
+  $("#generate-dispatcher").attr("disabled", false);
+}
+}
+
+function superAdminNotificationEmailValidation(element){
+    var value = element.value;
+if (value !== "" && validate(value) === false){
+  $(element).closest('.form__group').find('.notification-error').remove();
+  $(element).after(`<span class="form-error-msg notification-error">Some email(s) are in incorrect
+  email format. Please check and try again.</span>`);
+}else{
+  $(element).closest('.form__group').find('.notification-error').remove();
+}
+}
 /**
  * Sign in to get OAuth token
  */
@@ -156,6 +203,11 @@ function getDetails() {
     getAuthenticationToken(user);
 }
 
+function hidespinner(){
+    $(".button-submit .fa-spin").hide();
+    $(".button-submit span").show();
+    $(".button-submit").attr("disabled", false);
+}
 // post the login details and  generate the login token to login into config page
 function getAuthenticationToken(user) {
     var settings = {
@@ -167,25 +219,43 @@ function getAuthenticationToken(user) {
             "Content-Type": "application/json",
         },
         data: JSON.stringify(user),
+        
         error: function (xhr, error) {
             // disable the loading icon and enable the text in button as well as showing error message
-            document.getElementById("show-error").style.display = "block";
-            $(".button-submit .fa-spin").hide();
-            $(".button-submit span").show();
-            $(".button-submit").attr("disabled", false);
+            
+           var resMsg = JSON.parse(xhr.responseText);
+           if(resMsg.isSuccessful === false){
+           document.getElementById("show-error").innerHTML = resMsg.message;
+           hidespinner();
+           
+            }
+            else if(user.Password === "" && user.Username === "" ){
+                document.getElementById("show-error").innerHTML = 'The Username/Password field is required';
+                hidespinner();
+            }
+            else if(user.Username === "")
+            {
+                document.getElementById("show-error").innerHTML = 'The Username field is required';
+                hidespinner();
+            }
+            else if(user.Password === ""){
+                document.getElementById("show-error").innerHTML = 'The Password field is required';
+                hidespinner();
+            }
+            
         },
     };
     $.ajax(settings).done(function (oResponse) {
+   
         if (oResponse) {
             //get localStorge token and go to login page
             auth_token = oResponse.message;
-            localStorage.setItem("Oauth_Token", auth_token);
+            sessionStorage.setItem("Oauth_Token", auth_token);
             var current = window.location.href;
             var i = current.lastIndexOf("/");
             if (i != -1) {
                 current = current.substr(0, i) + "/config-file.html";
             }
-
             window.open(current, "_self");
         }
     });
@@ -194,7 +264,7 @@ function getAuthenticationToken(user) {
 // Create dispatches list in the dropdown select and queue name / queue connection string
 function getDispatcherlist() {
     // go to dispatcher list
-    auth_token = localStorage.getItem("Oauth_Token");
+    auth_token = sessionStorage.getItem("Oauth_Token");
     var settings = {
         async: true,
         crossDomain: true,
@@ -409,6 +479,7 @@ function getDisptachById(data) {
                 getMessageBirdData();
             }
         }
+        getSuperAdminNotificationData();
     });
 }
 
@@ -423,7 +494,17 @@ fieldsWithEmailValidators.forEach(function (x) {
         emailFormat(event.target);
     });
 });
+fieldsWithMultiEmailValidators.forEach(function (x) {
+    $(x).focusout(function () {
+        notificationEmailValidation(event.target);
+    });
+});
 
+fieldSuperAdminNotificationValidator.forEach(function (x) {
+    $(x).focusout(function () {
+        superAdminNotificationEmailValidation(event.target);
+    });
+});
 // on click on the save changes button in Custom SMTP Popup
 function vendorEmailUpdateAPI(event) {
     event.preventDefault();
@@ -707,6 +788,60 @@ function vendorSmsUpdateAPI(event) {
     }
 }
 
+// super admin notification Post API call
+function superAdminNotificationUpdateAPI(event) {
+    event.preventDefault();
+
+    for (var key in superAdminform) {
+        var selector = getElement(superAdminform[key]); // Go to required() function for validation
+        superAdminNotificationEmailValidation(selector);
+    }
+    if (!$(".form-error-msg").is(":visible")) {
+        $(function () {
+            const object = {
+                //Creating the object for super admin notification
+                BatchingQueue: "inmemory",
+                Sampler: "wxm",
+                Unsubscriber: "wxm",
+                AccountNotifications: document.getElementById("admin-notification-multi-email").value
+            };
+            var settings = {
+                async: true,
+                crossDomain: true,
+                url: config.baseURL + "/api/config/extendedproperties",
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: "Bearer " + auth_token, //passing the token for Authendication
+                },
+                data: JSON.stringify(object),
+                error: function (xhr, error) {
+                    alert("post email responses is not posted");
+                },
+            };
+            $.ajax(settings).done(function (data) {
+                if (data.AccountNotifications === null || data.AccountNotifications === "") {
+                   
+                    document.getElementById("setSuperAdminNotificationData").innerHTML = "Super admin notifications are not set up. Please configure it here.";
+                }
+                else{
+                    var value = document.getElementById("admin-notification-multi-email").value
+                    addValueSuperAdminPreview(value);
+                    alert("Super admin notification details saved successfully.");
+                }
+            });
+            return false;
+        });
+        var modal = document.getElementById("superAdminNotificationPopup"); // hide the opened popup
+        modal.style.display = "none"; // disable or enable the bottom save changes button depends on condition
+        $("body").css({
+            overflow: "auto",
+        });
+        
+    }
+}
+
 // create the Json for vendor detials
 $.fn.serializeObject = function () {
     var o = {};
@@ -836,101 +971,15 @@ const validate = (emails) => {
     return emails.every(validateEmail);
 };
 
-// notification onfocus validation
-$("#d-notification").focusout(function (element) {
-    var d = document.getElementById("d-notification").value;
-
-    if (d !== "" && validate(d) === false) {
-        // disable and enabling the form field
-        document.getElementById("error-d").style.display = "block";
-        enableDisableSaveButton();
-    } else {
-        document.getElementById("error-d").style.display = "none";
-        enableDisableSaveButton();
-    }
-});
-$("#i-notification").focusout(function () {
-    // disable and enabling the form field
-    var d = document.getElementById("i-notification").value;
-    if (d !== "" && validate(d) === false) {
-        document.getElementById("error-i").style.display = "block";
-        enableDisableSaveButton();
-    } else {
-        document.getElementById("error-i").style.display = "none";
-        enableDisableSaveButton();
-    }
-});
-$("#w-notification").focusout(function () {
-    // disable and enabling the form field
-    var d = document.getElementById("w-notification").value;
-    if (d !== "" && validate(d) === false) {
-        document.getElementById("error-w").style.display = "block";
-        enableDisableSaveButton();
-    } else {
-        document.getElementById("error-w").style.display = "none";
-        enableDisableSaveButton();
-    }
-});
-$("#e-notification").focusout(function () {
-    // disable and enabling the form field
-
-    var d = document.getElementById("e-notification").value;
-    if (d !== "" && validate(d) === false) {
-        document.getElementById("error-e").style.display = "block";
-        enableDisableSaveButton();
-    } else {
-        document.getElementById("error-e").style.display = "none";
-        enableDisableSaveButton();
-    }
-});
-$("#f-notification").focusout(function () {
-    // disable and enabling the form field
-    var d = document.getElementById("f-notification").value;
-    if (d !== "" && validate(d) === false) {
-        document.getElementById("error-f").style.display = "block";
-        enableDisableSaveButton();
-    } else {
-        document.getElementById("error-f").style.display = "none";
-        enableDisableSaveButton();
-    }
-});
-
 //notification validation and JSON creation
 function saveChanges(event) {
     event.preventDefault();
 
-    var d = document.getElementById("d-notification").value;
-    var i = document.getElementById("i-notification").value;
-    var w = document.getElementById("w-notification").value;
-    var e = document.getElementById("e-notification").value;
-    var f = document.getElementById("f-notification").value;
-    if (d !== "" && validate(d) === false) {
-        document.getElementById("error-d").style.display = "block"; // disable and enabling the form field
-        $("#generate-dispatcher").attr("disabled", true);
-    } else if (i !== "" && validate(i) === false) {
-        // disable and enabling the form field
-        document.getElementById("error-i").style.display = "block";
-        $("#generate-dispatcher").attr("disabled", true);
-    } else if (w !== "" && validate(w) === false) {
-        // disable and enabling the form field
-        document.getElementById("error-w").style.display = "block";
-        $("#generate-dispatcher").attr("disabled", true);
-    } else if (e !== "" && validate(e) === false) {
-        // disable and enabling the form field
-        document.getElementById("error-e").style.display = "block";
-        $("#generate-dispatcher").attr("disabled", true);
-    } else if (f !== "" && validate(f) === false) {
-        // disable and enabling the form field
-        document.getElementById("error-f").style.display = "block";
-        $("#generate-dispatcher").attr("disabled", true);
-    } else {
-        $("#generate-dispatcher").attr("disabled", false);
-        document.getElementById("error-d").style.display = "none"; // disabling all error message
-        document.getElementById("error-i").style.display = "none";
-        document.getElementById("error-w").style.display = "none";
-        document.getElementById("error-e").style.display = "none";
-        document.getElementById("error-f").style.display = "none";
-
+    for (var key in notificationForm) {
+        var selector = getElement(notificationForm[key]);
+        notificationEmailValidation(selector);  
+  }
+  if(!$('.notification-error').is(':visible')) {
         var divchildlength = $("#buildyourform1").children().length;
         staffPrefillArray = [];
         for (var j = 0; j < divchildlength; j++) {
@@ -965,11 +1014,11 @@ function saveChanges(event) {
             )
         );
         getUpdateDispatcherValue.staticPrefills = combinedArray; // combine both static responses and notification value
-        getUpdateDispatcherValue.notify.d = d;
-        getUpdateDispatcherValue.notify.i = i;
-        getUpdateDispatcherValue.notify.w = w;
-        getUpdateDispatcherValue.notify.e = e;
-        getUpdateDispatcherValue.notify.f = f;
+        getUpdateDispatcherValue.notify.d = document.getElementById("d-notification").value;
+        getUpdateDispatcherValue.notify.i = document.getElementById("i-notification").value;
+        getUpdateDispatcherValue.notify.w = document.getElementById("w-notification").value;
+        getUpdateDispatcherValue.notify.e = document.getElementById("e-notification").value;
+        getUpdateDispatcherValue.notify.f = document.getElementById("f-notification").value;
         if (getUpdateDispatcherValue.channelDetails.email.isValid == true) {
             // passing the email selected value here
             getUpdateDispatcherValue.channelDetails.email.vendorname = document.getElementById(
@@ -1245,7 +1294,45 @@ function enableDisableSaveButton() {
         $("#generate-dispatcher").attr("disabled", false);
     }
 }
+
+
+//get Super Admin notification API 
+function getSuperAdminNotificationData() {
+    var settings = {
+        async: true,
+        crossDomain: true,
+        url: config.baseURL + "/api/config/extendedproperties",
+        method: "GET",
+        headers: {
+            Authorization: "Bearer " + auth_token, // Passing the auth token here
+        },
+
+        error: function (xhr, error) {
+            //display the API Error here
+            alert("API error");
+        },
+    };
+    $.ajax(settings).done(function (oResponse) {
+        if (oResponse.AccountNotifications === null || oResponse.AccountNotifications === "" ) {
+         document.getElementById("setSuperAdminNotificationData").innerHTML = "Super admin notifications are not set up. Please configure it here.";
+        
+         document.getElementById("admin-notification-multi-email").value = "";
+        }
+        else{
+            var values = oResponse.AccountNotifications;
+            addValueSuperAdminPreview(values);
+            
+            document.getElementById("admin-notification-multi-email").value = values;
+        }
+    });
+}
+
+function addValueSuperAdminPreview(value){
+    var res = value.replace(/;/g, ", ");
+    document.getElementById("setSuperAdminNotificationData").innerHTML = "Super admin notifications will be sent to " + res;
+}
+
 //remove Token
 function logout(){
-localStorage.removeItem("Oauth_Token");
+sessionStorage.removeItem("Oauth_Token");
 }

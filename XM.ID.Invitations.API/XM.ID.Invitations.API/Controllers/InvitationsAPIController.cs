@@ -20,7 +20,7 @@ namespace Invitations.Controllers
         private readonly PayloadValidation PayloadValidation;
         private readonly EventLogList EventLogList;
 
-        public InvitationsAPIController(IConfiguration config, AuthTokenValidation authTokenValidation, 
+        public InvitationsAPIController(IConfiguration config, AuthTokenValidation authTokenValidation,
             ViaMongoDB viaMongoDB, PayloadValidation payloadValidation, EventLogList eventLogList)
         {
             Config = config;
@@ -32,18 +32,17 @@ namespace Invitations.Controllers
 
         [HttpPost]
         [Route("dispatchRequest")]
-        public async Task<IActionResult> DispatchRequest([FromHeader(Name = "Authorization")] string authToken, 
+        public async Task<IActionResult> DispatchRequest([FromHeader(Name = "Authorization")] string authToken,
             List<DispatchRequest> request)
         {
             try
             {
-
                 if (request == null)
                     return BadRequest("Bad Request");
 
                 // Fetch account configuration to be used through the whole request.
                 AccountConfiguration accConfiguration = GetAccountConfiguration().Result;
-                if(accConfiguration == null)
+                if (accConfiguration == null)
                 {
                     EventLogList.AddEventByLevel(2, SharedSettings.NoConfigInSPA, null);
                     await EventLogList.AddEventLogs(ViaMongoDB);
@@ -53,9 +52,9 @@ namespace Invitations.Controllers
                 // Validate Auth token(Basic or Bearer) and reject if fail.
                 if (!AuthTokenValidation.ValidateBearerToken(authToken, accConfiguration))
                 {
-                    EventLogList.AddEventByLevel(2, SharedSettings.AuthorizationDenied,null,null);
+                    EventLogList.AddEventByLevel(2, SharedSettings.AuthorizationDenied, null, null);
                     await EventLogList.AddEventLogs(ViaMongoDB);
-                    return Unauthorized(SharedSettings.AuthorizationDenied);
+                    return Unauthorized(SharedSettings.AuthDeniedResponse);
                 }
 
                 // Check for Payload size and number of Dispatches
@@ -74,7 +73,7 @@ namespace Invitations.Controllers
                         await sampler.IsSampledAsync(request);
                     else
                     {
-                        EventLogList.AddEventByLevel(4, SharedSettings.NoSamplingConfigured, null);
+                        EventLogList.AddEventByLevel(4, SharedSettings.NoSamplingConfigured, batchId);
                     }
 
                 BatchResponse batchResponse = new BatchResponse()
@@ -90,13 +89,18 @@ namespace Invitations.Controllers
 
                     bool res = processInvitations.GetAllInfoForDispatch();
                     if (!res)
-                        throw new Exception("Retrieval of all API responses for a Dispatch is not successful");
+                    {
+                        EventLogList.AddEventByLevel(2, SharedSettings.APIResponseFail, batchId, null);
+                        await EventLogList.AddEventLogs(ViaMongoDB);
+                        return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError,
+                            SharedSettings.APIResponseFail);
+                    }
 
                     await processInvitations.CheckDispatchData(request, batchId, batchResponse);
                 }
                 catch (Exception ex)
                 {
-                    EventLogList.AddExceptionEvent(ex, batchId);
+                    EventLogList.AddExceptionEvent(ex, batchId, null, null, null, SharedSettings.DispatchControllerEx2);
                     await EventLogList.AddEventLogs(ViaMongoDB);
                     return ex.Message switch
                     {
@@ -104,7 +108,8 @@ namespace Invitations.Controllers
                         _ => StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError, ex.Message)
                     };
                 }
-                EventLogList.AddEventByLevel(5, $"Multiple dispatch status returned", batchId, null);
+
+                EventLogList.AddEventByLevel(5, SharedSettings.DispatchStatusReturned, batchId, null);
                 await EventLogList.AddEventLogs(ViaMongoDB);
 
                 return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status207MultiStatus, batchResponse);
@@ -112,7 +117,7 @@ namespace Invitations.Controllers
             }
             catch (Exception ex)
             {
-                EventLogList.AddExceptionEvent(ex, null, null, null, null, "Exception in DispatchRequest Controller");
+                EventLogList.AddExceptionEvent(ex, null, null, null, null, SharedSettings.DispatchControllerEx1);
                 await EventLogList.AddEventLogs(ViaMongoDB);
                 return ex.Message switch
                 {
@@ -142,7 +147,7 @@ namespace Invitations.Controllers
 
         [HttpPost]
         [Route("EventLog")]
-        public async Task<IActionResult> GetEventLog([FromHeader(Name = "Authorization")] string authToken, 
+        public async Task<IActionResult> GetEventLog([FromHeader(Name = "Authorization")] string authToken,
             ActivityFilter filterObject)
         {
             //{"BatchId":"","DispatchId":"","Token":"","Created":"","Target":""} request format
@@ -194,8 +199,8 @@ namespace Invitations.Controllers
                 {
                     PreFillValue preFillValue = new PreFillValue()
                     {
-                        questionId = parameter.Key,
-                        input = parameter.Value
+                        QuestionId = parameter.Key,
+                        Input = parameter.Value
                     };
                     preFillValues.Add(preFillValue);
                 }

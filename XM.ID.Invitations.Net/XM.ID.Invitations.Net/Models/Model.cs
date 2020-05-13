@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
 namespace XM.ID.Invitations.Net
@@ -21,14 +20,14 @@ namespace XM.ID.Invitations.Net
         public List<List<PreFillValue>> PreFill { get; set; }
         public string DeliveryPlanID { get; set; }
         public List<string> Channels { get; set; }
-        public string uniqueCustomerIDByPreFilledQuestionTag { get; set; }
-        public string questionnaireName { get; set; }
+        public string UniqueCustomerIDByPreFilledQuestionTag { get; set; }
+        public string QuestionnaireName { get; set; }
     }
 
     public class PreFillValue
     {
-        public string questionId { get; set; }
-        public string input { get; set; }
+        public string QuestionId { get; set; }
+        public string Input { get; set; }
     }
 
     public class BatchResponse
@@ -116,34 +115,6 @@ namespace XM.ID.Invitations.Net
 
         [JsonProperty(PropertyName = ".expires")]
         public string Expires { get; set; }
-    }
-
-    public class UserProfile
-    {
-        public string user { get; set; }
-        public object name { get; set; }
-        public object enterpriseRole { get; set; }
-        public object department { get; set; }
-        public object enterpriseRoleId { get; set; }
-        public object departmentId { get; set; }
-        public bool? isDepartmentAdmin { get; set; }
-        public bool? isAccountAdmin { get; set; }
-        public object reportsTo { get; set; }
-        public List<object> languages { get; set; }
-        public List<object> regions { get; set; }
-        public double rating { get; set; }
-        public int ratingCount { get; set; }
-        public DateTime since { get; set; }
-        public DateTime lastSeen { get; set; }
-        public object locations { get; set; }
-        public object conditionalFilter { get; set; }
-        public object status { get; set; }
-        public string email { get; set; }
-        public object phone { get; set; }
-        public bool? isPhoneVerified { get; set; }
-        public bool? rememberTwoFactor { get; set; }
-        public bool? highPrecisionMode { get; set; }
-        public object timeZoneOffset { get; set; }
     }
 
     public class Dispatch
@@ -837,10 +808,10 @@ namespace XM.ID.Invitations.Net
     #region SurveyQuestionnaire
     public class SurveyQuestionnaire
     {
-        public bool isNameImmutable { get; set; }
-        public string name { get; set; }
-        public string displayName { get; set; }
-        public string hashPIIBy { get; set; }
+        public bool IsNameImmutable { get; set; }
+        public string Name { get; set; }
+        public string DisplayName { get; set; }
+        public string HashPIIBy { get; set; }
     }
     #endregion
 

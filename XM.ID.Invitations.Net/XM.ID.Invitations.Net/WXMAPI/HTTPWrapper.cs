@@ -237,9 +237,9 @@ namespace XM.ID.Invitations.Net
                 //Check whether the request is successfull.
                 if (responseMessage != null)
                 {
+                    responseBody = await responseMessage.Content.ReadAsStringAsync();
                     if (responseMessage.IsSuccessStatusCode)
                     {
-                        responseBody = await responseMessage.Content.ReadAsStringAsync();
                         return responseBody;
                     }
                     else if (responseMessage.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -252,8 +252,8 @@ namespace XM.ID.Invitations.Net
                     {
                         if (_EventLogList != null)
                         {
-                            _EventLogList.AddEventByLevel(1, $"StatusCode: {responseMessage.StatusCode} " +
-                                $"ResponseMessage: {responseMessage.ToString()} Url: {url}", _batchID);
+                            _EventLogList.AddEventByLevel(2, $"StatusCode: {responseMessage.StatusCode} " +
+                                $"ResponseMessage: {responseBody} Url: {url}", _batchID);
                         }
                         return null;
                     }

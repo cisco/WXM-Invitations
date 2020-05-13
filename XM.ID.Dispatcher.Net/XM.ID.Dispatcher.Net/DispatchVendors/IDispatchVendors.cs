@@ -18,7 +18,7 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
         /// <param name="vendor"></param>
         public void Setup(Vendor vendor);
     }
-    
+
     /// <summary>
     /// Interface for a Single-Send Vendor
     /// </summary>

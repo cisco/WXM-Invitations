@@ -94,7 +94,7 @@ namespace XM.ID.Dispatcher.Net
         {
             try
             {
-                _instance = new Resources(mongoDbConnectionString, databaseName, logLevel, additionalDispatchCreatorStrategies, 
+                _instance = new Resources(mongoDbConnectionString, databaseName, logLevel, additionalDispatchCreatorStrategies,
                     bulkVendorName, bulkReadSize, surveyBaseDomain, unsubscribeUrl);
             }
             catch (Exception ex)
@@ -115,7 +115,7 @@ namespace XM.ID.Dispatcher.Net
             string surveyBaseDomain = "nps.bz",
             string unsubscribeUrl = "https://cx.getcloudcherry.com/l/unsub/?token=")
         {
-            if(_instance != null)
+            if (_instance != null)
             {
                 return _instance;
             }

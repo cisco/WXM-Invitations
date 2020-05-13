@@ -123,7 +123,8 @@ namespace XM.ID.Invitations.Net
                         else
                         {
                             //when login token api failed.
-                            eventLog.AddEventByLevel(1, "Bearer token not generated in DispatchTask", null);
+                            eventLog.AddEventByLevel(1, SharedSettings.BearerTokenNotGenerated, null);
+                            await eventLog.AddEventLogs(viaMongoDB);
                         }
 
                     }
@@ -185,16 +186,17 @@ namespace XM.ID.Invitations.Net
                             }
                         }
 
-                        await viaMongoDB.UpdateBulkEventLog(events);
+                        if(events.Count() > 0)
+                            await viaMongoDB.UpdateBulkEventLog(events);
 
-                        eventLog.AddEventByLevel(3, $"Update to DB completed for bulk token response of size {events.Count()}", null);
+                        eventLog.AddEventByLevel(5, $"{SharedSettings.DBUpdateCompleted} {events.Count()}", null);
                         await eventLog.AddEventLogs(viaMongoDB);
                     }
                 }
             }
             catch (Exception ex)
             {
-                eventLog.AddExceptionEvent(ex, null, null, null, null, "Bulk Token API failed");
+                eventLog.AddExceptionEvent(ex, null, null, null, null, SharedSettings.BulkTokenException);
                 await eventLog.AddEventLogs(viaMongoDB);
                 return;
             }

@@ -40,12 +40,9 @@ The various components which are a part of the Invitations module is as given be
  - Dispatch request: This is the entry point into the Invitations module. A 3rd party system can make an API request to the invitations module to initiate an email/SMS send
  - Sampling: Customers may choose to send only a subset of all the records included in the dispatch request. This can be achieved by setting sampling rules either in Experience Management or can be extended using any custom logic
  - Cross channel token creation: This component interfaces with Experience Management Delivery policy module to create Experience Management unique survey links that will be sent to end customers
- - Database: This component holds all the data needed to be stored for the Invitations module to work.
- - Dispatcher: This component interfaces with 3rd party email and SMS vendors to send emails and SMS
-    1. Custom SMTP: Custom SMTP can be set up by providing the details of an email vendor or an email softwares SMTP details (for ex: Outlook/gmail smtp settings or Sengrid SMTP settings). Using Custom SMTP, the dispatcher component processes and sends one email at a time.
-    2. Custom SMS: Custom SMS can be set up by configuring the SMS webhook provided by 3rd party SMS vendors or by integrating with 3rd party SMS vendor APIs (for ex: Messagebird, Webtext, Nexmo etc). Using Custom SMS, the dispatcher component processes and sends one SMS at a time.
-    3. Bulk Email: Bulk email can be set up by configuring a 3rd party email vendors details. This is an API integration done with Email vendors such as Sparkpost, and others who provides APIs that accepts multiple email requests in one API call. This is particularly used while you are setting up the Invitations module to work at a very large-scale sending millions of emails a day.
-
+ - Database: This component holds all the data needed to be stored for the Invitations module to work
+ - Dispatcher: This component interfaces with 3rd party email and SMS vendors that help deliver the invitations to the recipients
+    
 We have included a reference implementation with Messagebird for Custom SMS and with Sparkpost for Bulk email as a part of this open sourced code base. Our documentation provides more information how you may extend this module to integrate with other SMS and email vendors.
 
 Please refer the following documents for consuming this open sourced code base and completing the deployment of the single instance private cloud module.

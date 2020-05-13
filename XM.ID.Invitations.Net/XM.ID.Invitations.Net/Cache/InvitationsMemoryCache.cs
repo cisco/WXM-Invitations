@@ -12,8 +12,6 @@ namespace XM.ID.Invitations.Net
         private readonly object settingsLock = new object();
         private readonly object questionniareLock = new object();
 
-        private readonly HTTPWrapper hTTPWrapper = new HTTPWrapper();
-
         private readonly MemoryCache Cache = new MemoryCache(new MemoryCacheOptions
         {
         });
@@ -65,7 +63,7 @@ namespace XM.ID.Invitations.Net
         }
 
 
-        public string GetDispatchDataFromMemoryCache(string authToken)
+        public string GetDispatchDataFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
         {
             if (Cache.TryGetValue("DispatchData", out string value))
                 return value;
@@ -89,7 +87,7 @@ namespace XM.ID.Invitations.Net
             }
         }
 
-        public string GetDeliveryPlanFromMemoryCache(string authToken)
+        public string GetDeliveryPlanFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
         {
             if (Cache.TryGetValue("DeliveryPlanData", out string value))
                 return value;
@@ -113,7 +111,7 @@ namespace XM.ID.Invitations.Net
             }
         }
 
-        public string GetActiveQuestionsFromMemoryCache(string authToken)
+        public string GetActiveQuestionsFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
         {
             if (Cache.TryGetValue("ActiveQuestions", out string value))
                 return value;
@@ -138,7 +136,7 @@ namespace XM.ID.Invitations.Net
         }
 
 
-        public string GetSettingsFromMemoryCache(string authToken)
+        public string GetSettingsFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
         {
             if (Cache.TryGetValue("settings", out string value))
                 return value;
@@ -162,7 +160,7 @@ namespace XM.ID.Invitations.Net
             }
         }
 
-        public string GetQuestionnaireFromMemoryCache(string authToken)
+        public string GetQuestionnaireFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
         {
             if (Cache.TryGetValue("SurveyQuestionnaires", out string value))
                 return value;

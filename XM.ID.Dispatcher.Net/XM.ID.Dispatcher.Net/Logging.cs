@@ -111,7 +111,7 @@ namespace XM.ID.Dispatcher.Net
         internal static LogMessage Dequeued = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = "Invitation dequeued"
+            Message = "Dequeued"
         };
 
         internal static LogMessage Validated(string additionalParams)
@@ -119,38 +119,38 @@ namespace XM.ID.Dispatcher.Net
             return new LogMessage
             {
                 Level = LogMessage.SeverityLevel_Verbose,
-                Message = $"Invitation validated | Additional Token Parameters: {additionalParams}"
+                Message = $"Validated (Additional Token Parameters: {additionalParams})"
             };
         }
 
         internal static LogMessage Invalidated = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Invitation invalidated => Token-Id/Batch-Id/Dispatch-Id is null/empty"
+            Message = "Invalidated as Token ID, Batch ID or Dispatch ID is not available"
         };
 
         internal static LogMessage ChannelNotConfigured1 = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Invitation's channel not configured => Both EmailId and MobileNumber are present"
+            Message = "Channel couldn't be inferred as both email ID and mobile number are available"
         };
 
         internal static LogMessage ChannelNotConfigured2 = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Invitation's channel not configured => Both EmailId and MobileNumber are null"
+            Message = "Channel couldn't be inferred as both email ID and mobile number are not available"
         };
 
         internal static LogMessage EmailChannelConfigured = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = "Invitation's channel configured => Email"
+            Message = "Channel inferred as Email"
         };
 
         internal static LogMessage SmsChannelConfigured = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = "Invitation's channel configured => Sms"
+            Message = "Channel inferred as SMS"
         };
 
         internal static LogMessage UserDataFound(string id)
@@ -158,20 +158,20 @@ namespace XM.ID.Dispatcher.Net
             return new LogMessage
             {
                 Level = LogMessage.SeverityLevel_Verbose,
-                Message = $"Invitation's User-Data-Log-Event configured => Matching document id: {id}"
+                Message = $"Corresponding Event log was found (id: {id})"
             };
         }
 
         internal static LogMessage UserDataNotFound = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Invitation's User-Data-Log-Event not configured => No matching document found in collection"
+            Message = "Corresponding Event Log was not found in the database"
         };
 
         internal static LogMessage HashLookUpDictConfigured = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = "Invitation's Hash Look-Up Dictionary Configured"
+            Message = "Corresponding Hash Look-Up Dictionary has been configured"
         };
 
         internal static LogMessage DispatchVendorNamePresent(string name)
@@ -179,14 +179,14 @@ namespace XM.ID.Dispatcher.Net
             return new LogMessage
             {
                 Level = LogMessage.SeverityLevel_Verbose,
-                Message = $"Invitation's Dispatch-Id's Dispatch-Vendor-Name was found => Dispatch's Vendor Name: {name}"
+                Message = $"Corresponding Dispatch's Vendor Name is found (name: {name})"
             };
         }
 
         internal static LogMessage DispatchVendorNameMissing = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Invitation's Dispatch-Id's Dispatch-Vendor-Name was not found => Misconfigured DispatchChannel in Account-Configuration"
+            Message = "Corresponding Dispatch's Vendor Name is missing from the Account Configuration Module"
         };
 
         internal static LogMessage DispatchVendorConfigPresent(Vendor vendor)
@@ -194,26 +194,26 @@ namespace XM.ID.Dispatcher.Net
             return new LogMessage
             {
                 Level = LogMessage.SeverityLevel_Verbose,
-                Message = $"Invitation's Dispatch-Vendor-Config was found => {JsonConvert.SerializeObject(vendor)}"
+                Message = $"Corresponding Vendor Details are available (vendor details: {JsonConvert.SerializeObject(vendor)})"
             };
         }
 
         internal static LogMessage DispatchVendorConfigMissing = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Invitation's Dispatch-Vendor-Config was not found => Absent Vendor-Details from Account-Config"
+            Message = "Corresponding Vendor Details are missing from the Account Configuration Module"
         };
 
         internal static LogMessage VendorIsBulk = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = "Invitation's VendorType is bulk => Invitation will now be inserted in to [Collection: BulkMessage]"
+            Message = "Corresponding Vendor is of type Bulk-Send. Invitation will now be inserted into the database."
         };
 
         internal static LogMessage VendorIsNotBulk = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = "Invitation's VendorType is not bulk => Invitation will now be dispatched"
+            Message = "Corresponding Vendor is of type Single-Send. Invitation will now be prepared for dispatched."
         };
 
         internal static LogMessage DispatchVendorImplemenatationPresent(Vendor vendor)
@@ -221,14 +221,14 @@ namespace XM.ID.Dispatcher.Net
             return new LogMessage
             {
                 Level = LogMessage.SeverityLevel_Verbose,
-                Message = $"Invitation's Dispatch-Vendor-Implementation was found in Memory => {JsonConvert.SerializeObject(vendor)}"
+                Message = $"Corresponding Vendor implemetation object was found in the serverless compute's memory (vendor details: {JsonConvert.SerializeObject(vendor)})"
             };
         }
 
         internal static LogMessage DispatchVendorImplementationMissing = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Invitation's Dispatch-Vendor-Implementation was not found in Memory => Vendor Name is Missing From DispatchVendor_CreationStratergies"
+            Message = "Corresponding Vendor implemetation object was not found in the serverless compute's memory"
         };
 
         /// <summary>
@@ -241,7 +241,7 @@ namespace XM.ID.Dispatcher.Net
             return new LogMessage
             {
                 Level = LogMessage.SeverityLevel_Information,
-                Message = $"Invitation has been successfully dispatched => via {vendorName}"
+                Message = $"Successfully Dispatched (via: {vendorName})"
             };
         }
 
@@ -257,14 +257,14 @@ namespace XM.ID.Dispatcher.Net
             {
                 Exception = JsonConvert.SerializeObject(ex),
                 Level = LogMessage.SeverityLevel_Error,
-                Message = $"Invitation was not dispatched => via {vendorName}"
+                Message = $"Failed at Dispatch (via: {vendorName})"
             };
         }
 
         internal static LogMessage ReadFromDB = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = $"Invitation read from DB into memory => Vendor: {Resources.GetInstance().BulkVendorName}"
+            Message = $"Read from database into memory (Bulk-Send Vendor: {Resources.GetInstance().BulkVendorName})"
         };
 
         internal static LogMessage InternalException(Exception ex)
@@ -280,7 +280,7 @@ namespace XM.ID.Dispatcher.Net
         internal static LogMessage TimeTriggerStart = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Verbose,
-            Message = $"Time Trigger Function has now started"
+            Message = $"Time Trigger Serverless Compute has now started"
         };
 
         internal static LogMessage TimeTriggerEnd(int messageCount)
@@ -288,21 +288,20 @@ namespace XM.ID.Dispatcher.Net
             return new LogMessage
             {
                 Level = LogMessage.SeverityLevel_Verbose,
-                Message = $"Time Trigger Function has now ended => Messages Processed = {messageCount}"
+                Message = $"Time Trigger Serverless Compute has now ended (Invitations Processed = {messageCount})"
             };
         }
 
         internal static LogMessage TimeTriggerRunningLate = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Warning,
-            Message = $"Time Trigger Function is runnning late"
+            Message = $"Time Trigger Serverless Compute is running late"
         };
 
         internal static LogMessage DispatchChannelNotFound = new LogMessage
         {
             Level = LogMessage.SeverityLevel_Error,
-            Message = "Dispatch Channel Missing from Account-Configuration"
+            Message = "Corresponding Dispatch was not found in the Account Configuration Module"
         };
-
     }
 }

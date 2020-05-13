@@ -19,10 +19,10 @@ namespace XM.ID.Dispatcher.Net
             if (isDispatchVendorStrategyPresent == false)
             {
                 IsDispatcConfigured = false;
-                MessagePayload.LogEvents.Add(Utils.CreateLogEvent(MessagePayload.AzureQueueData, IRDLM.DispatchVendorImplementationMissing));
+                MessagePayload.LogEvents.Add(Utils.CreateLogEvent(MessagePayload.QueueData, IRDLM.DispatchVendorImplementationMissing));
                 MessagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
                     MessagePayload.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS,
-                    MessagePayload.AzureQueueData, IRDLM.DispatchVendorImplementationMissing));
+                    MessagePayload.QueueData, IRDLM.DispatchVendorImplementationMissing));
             }
             else
             {
@@ -32,7 +32,7 @@ namespace XM.ID.Dispatcher.Net
                 DispatchReadyVendor.Setup(vendor);
 
                 IsDispatcConfigured = true;
-                MessagePayload.LogEvents.Add(Utils.CreateLogEvent(MessagePayload.AzureQueueData, IRDLM.DispatchVendorImplemenatationPresent(DispatchReadyVendor.Vendor)));
+                MessagePayload.LogEvents.Add(Utils.CreateLogEvent(MessagePayload.QueueData, IRDLM.DispatchVendorImplemenatationPresent(DispatchReadyVendor.Vendor)));
             }
         }
     }
@@ -51,9 +51,9 @@ namespace XM.ID.Dispatcher.Net
             if (isDispatchVendorStrategyPresent == false)
             {
                 IsDispatchConfigured = false;
-                MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.AzureQueueData, IRDLM.DispatchVendorImplementationMissing)));
+                MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.QueueData, IRDLM.DispatchVendorImplementationMissing)));
                 MessagePayloads.ForEach(x => x.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
-                    x.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, x.AzureQueueData, IRDLM.DispatchVendorImplementationMissing)));
+                    x.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, x.QueueData, IRDLM.DispatchVendorImplementationMissing)));
             }
             else
             {
@@ -62,7 +62,7 @@ namespace XM.ID.Dispatcher.Net
                 vendor.VendorDetails = vendor.VendorDetails.ToDictionary(x => x.Key, x => x.Value, StringComparer.InvariantCultureIgnoreCase);
                 DispatchReadyVendor.Setup(vendor);
                 IsDispatchConfigured = true;
-                MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.AzureQueueData, IRDLM.DispatchVendorImplemenatationPresent(vendor))));
+                MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.QueueData, IRDLM.DispatchVendorImplemenatationPresent(vendor))));
             }
         }
     }

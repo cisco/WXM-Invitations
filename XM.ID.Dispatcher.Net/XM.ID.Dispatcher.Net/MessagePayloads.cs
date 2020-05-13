@@ -23,7 +23,7 @@ namespace XM.ID.Dispatcher.Net
         /// <summary>
         /// Message received from Queue
         /// </summary>
-        public AzureQueueData AzureQueueData { get; set; }
+        public QueueData QueueData { get; set; }
         /// <summary>
         /// User-Data-Log-Event
         /// </summary>
@@ -48,68 +48,67 @@ namespace XM.ID.Dispatcher.Net
         {
 
         }
-        
-        public MessagePayload(AzureQueueData azureQueueData)
+
+        public MessagePayload(QueueData queueData)
         {
-            AzureQueueData = azureQueueData;
-            LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.Dequeued));
+            QueueData = queueData;
+            LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.Dequeued));
         }
 
         internal void Validate()
         {
-            bool isTokenIdPresent = !string.IsNullOrWhiteSpace(AzureQueueData.TokenId);
-            bool isBatchIdPresent = !string.IsNullOrWhiteSpace(AzureQueueData.BatchId);
-            bool isDispatchIdPresent = !string.IsNullOrWhiteSpace(AzureQueueData.DispatchId);
+            bool isTokenIdPresent = !string.IsNullOrWhiteSpace(QueueData.TokenId);
+            bool isBatchIdPresent = !string.IsNullOrWhiteSpace(QueueData.BatchId);
+            bool isDispatchIdPresent = !string.IsNullOrWhiteSpace(QueueData.DispatchId);
             if (isTokenIdPresent && isBatchIdPresent && isDispatchIdPresent)
             {
                 IsProcessable = true;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.Validated(AzureQueueData.AdditionalURLParameter)));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.Validated(QueueData.AdditionalURLParameter)));
             }
             else
             {
                 IsProcessable = false;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.Invalidated));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.Invalidated));
             }
         }
 
         internal void ConfigureChannel()
         {
-            if (!string.IsNullOrWhiteSpace(AzureQueueData.EmailId) && !string.IsNullOrWhiteSpace(AzureQueueData.MobileNumber))
+            if (!string.IsNullOrWhiteSpace(QueueData.EmailId) && !string.IsNullOrWhiteSpace(QueueData.MobileNumber))
             {
                 IsEmailDelivery = null;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.ChannelNotConfigured1));
-
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.ChannelNotConfigured1));
             }
-            else if (!string.IsNullOrWhiteSpace(AzureQueueData.EmailId))
+            else if (!string.IsNullOrWhiteSpace(QueueData.EmailId))
             {
                 IsEmailDelivery = true;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.EmailChannelConfigured));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.EmailChannelConfigured));
             }
-            else if (!string.IsNullOrEmpty(AzureQueueData.MobileNumber))
+            else if (!string.IsNullOrEmpty(QueueData.MobileNumber))
             {
                 IsEmailDelivery = false;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.SmsChannelConfigured));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.SmsChannelConfigured));
             }
             else
             {
                 IsEmailDelivery = null;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.ChannelNotConfigured2));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.ChannelNotConfigured2));
             }
         }
 
         internal async Task ConfigureUserData()
         {
-            Invitation = await Resources.GetInstance().LogEventCollection.Find(x => x.TokenId == AzureQueueData.TokenId &&
-            x.BatchId == AzureQueueData.BatchId && x.DispatchId == AzureQueueData.DispatchId).FirstOrDefaultAsync();
+            Invitation = await Resources.GetInstance().LogEventCollection.Find(x => x.TokenId == QueueData.TokenId &&
+            x.BatchId == QueueData.BatchId && x.DispatchId == QueueData.DispatchId).FirstOrDefaultAsync();
             if (Invitation == default)
             {
                 IsUserDataLogEventConfigured = false;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.UserDataNotFound));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.UserDataNotFound));
             }
             else
             {
                 IsUserDataLogEventConfigured = true;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.UserDataFound(Invitation.Id)));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.UserDataFound(Invitation.Id)));
             }
         }
 
@@ -125,21 +124,20 @@ namespace XM.ID.Dispatcher.Net
                 }
             }
 
-            AzureQueueData.CommonIdentifier = Invitation.Target;
+            QueueData.CommonIdentifier = Invitation.Target;
             if (IsEmailDelivery.Value)
             {
-                if (hashLookUpDict.TryGetValue(AzureQueueData.EmailId, out string emailId))
-                    AzureQueueData.EmailId = emailId;
+                if (hashLookUpDict.TryGetValue(QueueData.EmailId, out string emailId))
+                    QueueData.EmailId = emailId;
             }
             else
             {
-                if (hashLookUpDict.TryGetValue(AzureQueueData.MobileNumber, out string mobileNumber))
-                    AzureQueueData.MobileNumber = mobileNumber;
+                if (hashLookUpDict.TryGetValue(QueueData.MobileNumber, out string mobileNumber))
+                    QueueData.MobileNumber = mobileNumber;
             }
 
-
             Dictionary<string, string> unhashedMappedValues = new Dictionary<string, string>();
-            foreach (KeyValuePair<string, string> keyValuePair in AzureQueueData.MappedValue)
+            foreach (KeyValuePair<string, string> keyValuePair in QueueData.MappedValue)
             {
                 if (!string.IsNullOrEmpty(keyValuePair.Value))
                 {
@@ -149,19 +147,19 @@ namespace XM.ID.Dispatcher.Net
                         unhashedMappedValues.Add(keyValuePair.Key, keyValuePair.Value);
                 }
             }
-            AzureQueueData.MappedValue = unhashedMappedValues;
-            LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.HashLookUpDictConfigured));
+            QueueData.MappedValue = unhashedMappedValues;
+            LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.HashLookUpDictConfigured));
         }
 
         internal void ConfigureVendor()
         {
-            DispatchChannel dispatchChannel = Resources.GetInstance().AccountConfiguration.DispatchChannels?.Find(x => x.DispatchId == AzureQueueData.DispatchId);
+            DispatchChannel dispatchChannel = Resources.GetInstance().AccountConfiguration.DispatchChannels?.Find(x => x.DispatchId == QueueData.DispatchId);
             if (dispatchChannel == default)
             {
                 IsVendorConfigured = false;
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.DispatchChannelNotFound));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.DispatchChannelNotFound));
                 InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
-                    IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, AzureQueueData, IRDLM.DispatchChannelNotFound));
+                    IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, QueueData, IRDLM.DispatchChannelNotFound));
             }
             else
             {
@@ -173,25 +171,25 @@ namespace XM.ID.Dispatcher.Net
                 if (vendorName == null)
                 {
                     IsVendorConfigured = false;
-                    LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.DispatchVendorNameMissing));
+                    LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.DispatchVendorNameMissing));
                     InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
-                        IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, AzureQueueData, IRDLM.DispatchVendorNameMissing));
+                        IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, QueueData, IRDLM.DispatchVendorNameMissing));
                 }
                 else
                 {
-                    LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.DispatchVendorNamePresent(vendorName)));
+                    LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.DispatchVendorNamePresent(vendorName)));
                     Vendor = Resources.GetInstance().AccountConfiguration.Vendors?.Find(x => string.Equals(x.VendorName, vendorName, StringComparison.InvariantCultureIgnoreCase));
                     if (Vendor == null)
                     {
                         IsVendorConfigured = false;
-                        LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.DispatchVendorConfigMissing));
+                        LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.DispatchVendorConfigMissing));
                         InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
-                            IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, AzureQueueData, IRDLM.DispatchVendorConfigMissing));
+                            IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, QueueData, IRDLM.DispatchVendorConfigMissing));
                     }
                     else
                     {
                         IsVendorConfigured = true;
-                        LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.DispatchVendorConfigPresent(Vendor)));
+                        LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.DispatchVendorConfigPresent(Vendor)));
                     }
                 }
             }
@@ -201,9 +199,9 @@ namespace XM.ID.Dispatcher.Net
         {
             IsBulkVendor = Vendor.IsBulkVendor;
             if (IsBulkVendor)
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.VendorIsBulk));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.VendorIsBulk));
             else
-                LogEvents.Add(Utils.CreateLogEvent(AzureQueueData, IRDLM.VendorIsNotBulk));
+                LogEvents.Add(Utils.CreateLogEvent(QueueData, IRDLM.VendorIsNotBulk));
         }
     }
 

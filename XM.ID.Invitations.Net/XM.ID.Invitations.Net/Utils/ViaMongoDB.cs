@@ -95,7 +95,8 @@ namespace XM.ID.Invitations.Net
             {
                 { "BatchingQueue", "inmemory" },
                 { "Sampler", "wxm" },
-                { "Unsubscriber", "wxm" }
+                { "Unsubscriber", "wxm" },
+                { "AccountNotifications", "" }
             };
             var filter = Builders<AccountConfiguration>.Filter.Empty;
             var update = Builders<AccountConfiguration>.Update

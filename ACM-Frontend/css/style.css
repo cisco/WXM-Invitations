@@ -64,8 +64,10 @@ span#setMultiLanguage {
     margin-left: 30px;
 }
 
-.smsEditedValue span, .emailEditedValue span, .MessageBird span, .SparkPostValueEdited span {
+.smsEditedValue span, .emailEditedValue span, .MessageBird span, .SparkPostValueEdited span, #setSuperAdminNotificationData {
     color: #ccc;
+    width: 50%;
+    display: block;
 }
 .smsEditedValue, .MessageBird, .emailEditedValue, .SparkPostValueEdited{
     display:none
@@ -236,7 +238,7 @@ display: none;
 #show-error{
     font-size: 11px;
     color: #ff0000;
-    display: none;
+    display: block;
 }
 span#myBtn {
     top: -9px;
@@ -367,4 +369,13 @@ button[disabled]{
     top: 35px;
     cursor: pointer;
     text-decoration: none;
+}
+
+.super-admin-notification p span {
+    color: #00bceb;
+    cursor: pointer;
+}
+
+.super-admin-notification {
+    margin: 30px 0 10px 0;
 }

@@ -19,14 +19,14 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
         {
             try
             {
-                Utils.PerformLookUps(messagePayload.AzureQueueData);
+                Utils.PerformLookUps(messagePayload.QueueData);
                 HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, Vendor.VendorDetails["url"]);
                 request.Headers.Add("Authorization", "AccessKey " + Vendor.VendorDetails["accesskey"]);
                 MessageBirdRequest messageBirdRequest = new MessageBirdRequest
                 {
-                    body = messagePayload.AzureQueueData.TextBody,
+                    body = messagePayload.QueueData.TextBody,
                     originator = Vendor.VendorDetails["originator"],
-                    recipients = messagePayload.AzureQueueData.MobileNumber,
+                    recipients = messagePayload.QueueData.MobileNumber,
                     shortcode = Vendor.VendorDetails["shortcode"] ?? "",
                     datacoding = Vendor.VendorDetails["datacoding"] ?? "plain"
                 };
@@ -37,23 +37,22 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                 {
                     HttpRequestException httpRequestException = new HttpRequestException($"Message Bird API didn't return a 2xx => " +
                         $"response headers: {JsonConvert.SerializeObject(response)} => response content: {await response.Content.ReadAsStringAsync()}");
-                    messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
-                    messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.SMS, 
-                        messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
+                    messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
+                    messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.SMS,
+                        messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
                 }
                 else
                 {
-                    messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
-                    messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchSuccessful, EventChannel.SMS, 
-                        messagePayload.AzureQueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
+                    messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
+                    messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchSuccessful, EventChannel.SMS,
+                        messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
                 }
             }
             catch (Exception ex)
             {
-                messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
-                messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.SMS, 
-                    messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
-
+                messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
+                messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.SMS,
+                    messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
             }
         }
 

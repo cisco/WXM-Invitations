@@ -25,8 +25,10 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
 
         public async Task RunAsync(List<MessagePayload> messagePayloads)
         {
-            
-            Prepare(messagePayloads.ElementAt(0).AzureQueueData.Subject, messagePayloads.ElementAt(0).AzureQueueData.HTMLBody, messagePayloads.ElementAt(0).AzureQueueData.TextBody);
+            var subject = messagePayloads.ElementAt(0).QueueData.Subject;
+            var htmlBody = messagePayloads.ElementAt(0).QueueData.HTMLBody;
+            var textBody = messagePayloads.ElementAt(0).QueueData.TextBody;
+            Prepare(subject, htmlBody, textBody);
 
             int batchSize = int.Parse(Vendor.VendorDetails["batchSize"]);
             List<List<MessagePayload>> batchesOfMessagePayload = new List<List<MessagePayload>>();
@@ -62,16 +64,16 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                         Dictionary<string, string> substitutionDataDict = new Dictionary<string, string>();
                         foreach (KeyValuePair<string, string> kvp in qIdLookUpDict)
                         {
-                            if (messagePayload.AzureQueueData.MappedValue.ContainsKey(kvp.Key))
-                                substitutionDataDict.Add(kvp.Value, messagePayload.AzureQueueData.MappedValue[kvp.Key]);
+                            if (messagePayload.QueueData.MappedValue.ContainsKey(kvp.Key))
+                                substitutionDataDict.Add(kvp.Value, messagePayload.QueueData.MappedValue[kvp.Key]);
                         }
-                        substitutionDataDict.Add("Token", messagePayload.AzureQueueData.TokenId);
-                        substitutionDataDict.Add("SurveyURL", Utils.GetSurveyURL(messagePayload.AzureQueueData));
-                        substitutionDataDict.Add("UnsubscribeURL", Utils.GetUnsubscribeURL(messagePayload.AzureQueueData));
+                        substitutionDataDict.Add("Token", messagePayload.QueueData.TokenId);
+                        substitutionDataDict.Add("SurveyURL", Utils.GetSurveyURL(messagePayload.QueueData));
+                        substitutionDataDict.Add("UnsubscribeURL", Utils.GetUnsubscribeURL(messagePayload.QueueData));
 
                         recipient recipient = new recipient
                         {
-                            address = new address { email = messagePayload.AzureQueueData.EmailId },
+                            address = new address { email = messagePayload.QueueData.EmailId },
                             substitution_data = substitutionDataDict
                         };
                         sparkPostRequest.recipients.Add(recipient);
@@ -85,18 +87,18 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                         {
                             HttpRequestException httpRequestException = new HttpRequestException($"Spark Post API didn't return a 2xx => response headers: " +
                                 $"{JsonConvert.SerializeObject(response)} => response content: {await response.Content.ReadAsStringAsync()}");
-                            messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
+                            messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
                             messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.Email,
-                                messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
+                                messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
                         }
                     }
                     else
                     {
                         foreach (MessagePayload messagePayload in batchOfMessagePayload)
                         {
-                            messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
+                            messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
                             messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchSuccessful, EventChannel.Email,
-                                messagePayload.AzureQueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
+                                messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
                         }
                     }
                 }
@@ -104,9 +106,9 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                 {
                     foreach (MessagePayload messagePayload in batchOfMessagePayload)
                     {
-                        messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
+                        messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
                         messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.Email,
-                               messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
+                               messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
                     }
                 }
             }
@@ -115,7 +117,7 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
         public void Prepare(string subject, string htmlBody, string textBody)
         {
             int count = 0;
-            string matchString = @"(?<=\{\{)([a-f\d]{24})(\s+or\s+'.*?')?(?=\}\})";
+            string matchString = @"(?<=\{\{)\s*([a-f\d]{24})(\s+or\s+'.*?'\s*)?(?=\}\})";
             RegexOptions options = RegexOptions.Multiline | RegexOptions.IgnoreCase;
             //Check Subject
             if (!string.IsNullOrWhiteSpace(subject))

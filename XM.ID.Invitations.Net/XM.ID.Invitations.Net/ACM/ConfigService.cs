@@ -90,7 +90,7 @@ namespace XM.ID.Invitations.Net
                 else
                 {
                     var configuredDispatchChannels = await ConfigureDispatchChannels(dispatches, deliveryPlans, preFillQuestions);
-                    var configuredQueue = ConfigureQueueDetails(settings);
+                    var configuredQueue = await ConfigureQueueDetails(settings);
                     result.StatusCode = 200;
                     result.Value = new DispatchesAndQueueDetails
                     {
@@ -187,23 +187,17 @@ namespace XM.ID.Invitations.Net
             return (await ViaMongoDB.UpdateAccountConfiguration_DispatchChannels(accountConfiguration.DispatchChannels)).DispatchChannels;
         }
 
-        public Queue ConfigureQueueDetails(Settings settings)
+        public async Task<Queue> ConfigureQueueDetails(Settings settings)
         {
             string queueName = settings.Integrations?.QueueDetails?.ElementAt(0)?.QueueName;
             string queueConnectionString = settings.Integrations?.QueueDetails?.ElementAt(0)?.ConnectionString;
             string queueType = settings.Integrations?.QueueDetails?.ElementAt(0)?.Type;
-            if (string.IsNullOrWhiteSpace(queueName) || string.IsNullOrWhiteSpace(queueConnectionString) || string.IsNullOrWhiteSpace(queueType))
-                return new Queue
-                {
-                    QueueConnectionString = "Details unavailable. Please check this in Experience Management",
-                    QueueType = "Details unavailable. Please check this in Experience Management"
-                };
-            else
-                return new Queue
-                {
-                    QueueConnectionString = queueName + "@" + queueConnectionString,
-                    QueueType = queueType
-                };
+            Queue queue = new Queue
+            {
+                QueueType = string.IsNullOrWhiteSpace(queueType) ? "Details unavailable. Please check this in Experience Management" : queueType,
+                QueueConnectionString = string.IsNullOrWhiteSpace(queueConnectionString) ? "Details unavailable. Please check this in Experience Management" : string.IsNullOrWhiteSpace(queueName) ? queueConnectionString : queueName + "@" + queueConnectionString
+            };
+            return (await ViaMongoDB.UpdateAccountConfiguration_Queue(queue)).Queue;
         }
 
         public async Task<ACMGenericResult<DispatchChannel>> GetDispatchChannel(string dispatchId)

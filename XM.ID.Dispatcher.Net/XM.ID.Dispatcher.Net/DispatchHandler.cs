@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using XM.ID.Dispatcher.Net.DispatchVendors;
-using System.Linq;
 
 namespace XM.ID.Dispatcher.Net
 {
@@ -25,7 +24,7 @@ namespace XM.ID.Dispatcher.Net
         /// <param name="bulkReadSize"></param>
         /// <param name="surveyBaseDomain"></param>
         /// <param name="unsubscribeUrl"></param>
-        public DispatchHandler(string mongoDbConnectionString, 
+        public DispatchHandler(string mongoDbConnectionString,
             string databaseName,
             int logLevel = 5,
             Dictionary<string, Func<IDispatchVendor>> additionalDispatchCreatorStrategies = default,
@@ -38,9 +37,9 @@ namespace XM.ID.Dispatcher.Net
                 bulkVendorName, bulkReadSize, surveyBaseDomain, unsubscribeUrl);
         }
 
-        public async Task ProcessSingleMessage(AzureQueueData azureQueueData)
+        public async Task ProcessSingleMessage(QueueData queueData)
         {
-            MessagePayload messagePayload = new MessagePayload(azureQueueData);
+            MessagePayload messagePayload = new MessagePayload(queueData);
             try
             {
                 messagePayload.Validate();
@@ -79,14 +78,14 @@ namespace XM.ID.Dispatcher.Net
                 }
                 catch (Exception ex)
                 {
-                    messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.InternalException(ex)));
+                    messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.InternalException(ex)));
                     messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
-                        messagePayload.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, messagePayload.AzureQueueData, IRDLM.InternalException(ex)));
+                        messagePayload.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, messagePayload.QueueData, IRDLM.InternalException(ex)));
                 }
             }
             catch (Exception ex)
             {
-                messagePayload.LogEvents.Add(Utils.CreateLogEvent(azureQueueData, IRDLM.InternalException(ex)));
+                messagePayload.LogEvents.Add(Utils.CreateLogEvent(queueData, IRDLM.InternalException(ex)));
             }
             finally
             {
@@ -102,9 +101,9 @@ namespace XM.ID.Dispatcher.Net
                 logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerRunningLate));
             List<MessagePayload> messagePayloads = new List<MessagePayload>();
             List<DB_MessagePayload> dB_MessagePayloads = await Utils.ReadBulkMessagePayloads();
-            try
+            if (dB_MessagePayloads.Count > 0)
             {
-                if (dB_MessagePayloads.Count > 0)
+                try
                 {
                     await Utils.UpdateBulkMessagePayloads(dB_MessagePayloads);
                     Dictionary<string, List<MessagePayload>> ListOfMessagePayloadsByTemplateId = new Dictionary<string, List<MessagePayload>>();
@@ -112,10 +111,10 @@ namespace XM.ID.Dispatcher.Net
                     {
                         MessagePayload messagePayload = JsonConvert.DeserializeObject<MessagePayload>(dB_MessagePayload.MessagePayload);
                         messagePayloads.Add(messagePayload);
-                        messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.ReadFromDB));
-                        if (!ListOfMessagePayloadsByTemplateId.ContainsKey(messagePayload.AzureQueueData.TemplateId))
-                            ListOfMessagePayloadsByTemplateId.Add(messagePayload.AzureQueueData.TemplateId, new List<MessagePayload>());
-                        ListOfMessagePayloadsByTemplateId[messagePayload.AzureQueueData.TemplateId].Add(messagePayload);
+                        messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.ReadFromDB));
+                        if (!ListOfMessagePayloadsByTemplateId.ContainsKey(messagePayload.QueueData.TemplateId))
+                            ListOfMessagePayloadsByTemplateId.Add(messagePayload.QueueData.TemplateId, new List<MessagePayload>());
+                        ListOfMessagePayloadsByTemplateId[messagePayload.QueueData.TemplateId].Add(messagePayload);
                     }
                     foreach (KeyValuePair<string, List<MessagePayload>> messagePayloadsByTemplateId in ListOfMessagePayloadsByTemplateId)
                     {
@@ -130,25 +129,24 @@ namespace XM.ID.Dispatcher.Net
                         }
                         catch (Exception ex)
                         {
-                            bulkDispatch.MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.AzureQueueData, IRDLM.InternalException(ex))));
+                            bulkDispatch.MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.QueueData, IRDLM.InternalException(ex))));
                             bulkDispatch.MessagePayloads.ForEach(x => x.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
-                                x.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, x.AzureQueueData, IRDLM.InternalException(ex))));
+                                x.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, x.QueueData, IRDLM.InternalException(ex))));
                         }
                     }
+                }
+                catch (Exception ex)
+                {
+                    logEvents.Add(Utils.CreateLogEvent(null, IRDLM.InternalException(ex)));
+                }
+                finally
+                {
                     await Utils.DeleteBulkMessagePayloads(dB_MessagePayloads);
                     await Utils.FlushLogs(messagePayloads);
                 }
             }
-            catch(Exception ex)
-            {
-                logEvents.Add(Utils.CreateLogEvent(null, IRDLM.InternalException(ex)));
-            }
-            finally
-            {
-                logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerEnd(dB_MessagePayloads.Count)));
-                await Utils.FlushLogs(logEvents);
-            }
+            logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerEnd(dB_MessagePayloads.Count)));
+            await Utils.FlushLogs(logEvents);
         }
     }
 }
-

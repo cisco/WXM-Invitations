@@ -136,7 +136,7 @@ namespace Invitations.Controllers
 
         [HttpPost]
         [Route("extendedproperties")]
-        public async Task<IActionResult> UpdateExtendedProperties([FromHeader(Name = "Authorization")] string authToken, [FromBody] Dictionary<string,string> extendedProperties)
+        public async Task<IActionResult> UpdateExtendedProperties([FromHeader(Name = "Authorization")] string authToken, [FromBody] Dictionary<string, string> extendedProperties)
         {
             ACMGenericResult<Dictionary<string, string>> response;
             if (!(await AuthTokenValidation.ValidateBearerToken(authToken)))

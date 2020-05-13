@@ -34,10 +34,10 @@ namespace Invitations
                     builder => builder.AllowAnyOrigin()
                     .AllowAnyMethod()
                     .AllowAnyHeader());
-            }); 
+            });
 
-            services.AddControllers(); 
-            
+            services.AddControllers();
+
             // MongoDB Initialization
             services.AddSingleton(new ViaMongoDB(Configuration));
             services.AddSingleton<WXMService>();
@@ -51,9 +51,9 @@ namespace Invitations
                 // Adding cron for background tasks which calls WXM bulk token API
                 services.AddCronJob<DispatchTask>(c =>
                 {
-                // Allowed option for Cronjob are 1 min, 2 mins, 5 mins and 10 mins.
-                // Defaulting to 1 min
-                c.TimeZoneInfo = TimeZoneInfo.Local;
+                    // Allowed option for Cronjob are 1 min, 2 mins, 5 mins and 10 mins.
+                    // Defaulting to 1 min
+                    c.TimeZoneInfo = TimeZoneInfo.Local;
                     c.CronExpression = (Configuration["ClearQueueFrequencyInMins"]) switch
                     {
                         "1" => @"* * * * *",

@@ -30,14 +30,17 @@ namespace XM.ID.Invitations.Net
                 }
             }
 
-            if (totalRecords > int.Parse(_config["MaxPayloadSize"]))
+            int MaxPayload = int.Parse(_config["MaxPayloadSize"]);
+            int MaxDispatch = int.Parse(_config["MaxDispatchIDCount"]);
+
+            if (totalRecords > MaxPayload)
             {
-                eventLogList.AddEventByLevel(2, $"{SharedSettings.MaxRecordSizeExceedeed} - {totalRecords}" , null, null);
+                eventLogList.AddEventByLevel(2, $"{SharedSettings.GetMaxRecordSizeExceedeed(MaxPayload)} - {totalRecords}" , null, null); 
                 return false;
             }
-            else if (dispatchArr.Count > int.Parse(_config["MaxDispatchIDCount"]))
+            else if (dispatchArr.Count > MaxDispatch)
             {
-                eventLogList.AddEventByLevel(2, $"{SharedSettings.MaxDispatchNumberExceeded} - {dispatchArr.Count}", null, null);
+                eventLogList.AddEventByLevel(2, $"{SharedSettings.GetMaxDispatchNumberExceeded(MaxDispatch)} - {dispatchArr.Count}", null, null);
                 return false;
             }
             return true;

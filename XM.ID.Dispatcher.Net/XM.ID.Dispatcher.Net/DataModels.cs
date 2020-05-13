@@ -89,7 +89,7 @@ namespace XM.ID.Dispatcher.Net
         public string QueueConnectionString { get; set; }
     }
 
-    public class AzureQueueData
+    public class QueueData
     {
         /// <summary>
         /// Token Number

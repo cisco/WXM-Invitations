@@ -19,14 +19,14 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
         {
             try
             {
-                Utils.PerformLookUps(messagePayload.AzureQueueData);
+                Utils.PerformLookUps(messagePayload.QueueData);
                 MimeMessage mimeMessage = new MimeMessage();
                 BodyBuilder bodyBuilder = new BodyBuilder();
                 mimeMessage.From.Add(new MailboxAddress(Vendor.VendorDetails["senderName"], Vendor.VendorDetails["senderAddress"]));
-                mimeMessage.To.Add(new MailboxAddress(messagePayload.AzureQueueData.EmailId));
-                mimeMessage.Subject = messagePayload.AzureQueueData.Subject;
-                bodyBuilder.TextBody = messagePayload.AzureQueueData.TextBody;
-                bodyBuilder.HtmlBody = messagePayload.AzureQueueData.HTMLBody;
+                mimeMessage.To.Add(new MailboxAddress(messagePayload.QueueData.EmailId));
+                mimeMessage.Subject = messagePayload.QueueData.Subject;
+                bodyBuilder.TextBody = messagePayload.QueueData.TextBody;
+                bodyBuilder.HtmlBody = messagePayload.QueueData.HTMLBody;
                 mimeMessage.Body = bodyBuilder.ToMessageBody();
                 lock (Resources.GetInstance().SmtpLock)
                 {
@@ -34,15 +34,15 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                     smtpClient.Send(mimeMessage);
                     smtpClient.Disconnect(true);
                 }
-                messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
+                messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
                 messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchSuccessful, EventChannel.Email,
-                    messagePayload.AzureQueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
+                    messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
             }
             catch (Exception ex)
             {
-                messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
+                messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
                 messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.Email,
-                    messagePayload.AzureQueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
+                    messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
             }
         }
 

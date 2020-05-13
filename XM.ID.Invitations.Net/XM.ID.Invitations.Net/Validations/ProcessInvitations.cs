@@ -42,10 +42,10 @@ namespace XM.ID.Invitations.Net
             try
             {
 
-                DispatchData = InvitationsMemoryCache.GetInstance().GetDispatchDataFromMemoryCache(FinalToken);
-                DeliveryPlanData = InvitationsMemoryCache.GetInstance().GetDeliveryPlanFromMemoryCache(FinalToken);
-                ActiveQuestions = InvitationsMemoryCache.GetInstance().GetActiveQuestionsFromMemoryCache(FinalToken);
-                DispatchSettings = InvitationsMemoryCache.GetInstance().GetSettingsFromMemoryCache(FinalToken);
+                DispatchData = InvitationsMemoryCache.GetInstance().GetDispatchDataFromMemoryCache(FinalToken, hTTPWrapper);
+                DeliveryPlanData = InvitationsMemoryCache.GetInstance().GetDeliveryPlanFromMemoryCache(FinalToken, hTTPWrapper);
+                ActiveQuestions = InvitationsMemoryCache.GetInstance().GetActiveQuestionsFromMemoryCache(FinalToken, hTTPWrapper);
+                DispatchSettings = InvitationsMemoryCache.GetInstance().GetSettingsFromMemoryCache(FinalToken, hTTPWrapper);
 
                 if (DispatchData == null)
                 {
@@ -61,13 +61,13 @@ namespace XM.ID.Invitations.Net
 
                 if (ActiveQuestions == null)
                 {
-                    EventLogList.AddEventByLevel(2, SharedSettings.NoQuestionnaireFound, BatchId);
+                    EventLogList.AddEventByLevel(2, SharedSettings.NoActiveQuestionsFound, BatchId);
                     return false;
                 }
 
                 if (DispatchSettings == null)
                 {
-                    EventLogList.AddEventByLevel(2, SharedSettings.InteralError + " - Empty Settings", BatchId);
+                    EventLogList.AddEventByLevel(2, SharedSettings.NoSettingsFound, BatchId);
                     return false;
                 } 
                 else 
@@ -75,10 +75,10 @@ namespace XM.ID.Invitations.Net
                     Settings settingsRes = JsonConvert.DeserializeObject<Settings>(DispatchSettings);
                     if (settingsRes.locationDataMigrated)
                     {
-                        SurverQuestionnaires = InvitationsMemoryCache.GetInstance().GetQuestionnaireFromMemoryCache(FinalToken);
+                        SurverQuestionnaires = InvitationsMemoryCache.GetInstance().GetQuestionnaireFromMemoryCache(FinalToken, hTTPWrapper);
                         if (string.IsNullOrEmpty(SurverQuestionnaires))
                         {
-                            EventLogList.AddEventByLevel(2, SharedSettings.InteralError + " - Empty Survey Questionnaires", BatchId);
+                            EventLogList.AddEventByLevel(2, SharedSettings.NoSurveyQuestionnaireFound, BatchId);
                             return false;
 
                         }
@@ -89,7 +89,7 @@ namespace XM.ID.Invitations.Net
             }
             catch (Exception ex)
             {
-                EventLogList.AddExceptionEvent(ex,null,null,null,null,"Getting details from MemoryCache failed");
+                EventLogList.AddExceptionEvent(ex, null, null, null, null, "Getting API details from MemoryCache failed");
                 return false;
             }
         }
@@ -134,9 +134,10 @@ namespace XM.ID.Invitations.Net
                                         PreFill = batchreq.PreFill,
                                         DeliveryPlanID = reqDispatch.DeliveryPlanId,
                                         Channels = new List<string>(),
-                                        questionnaireName = reqDispatch.QuestionnaireName
+                                        QuestionnaireName = reqDispatch.QuestionnaireName
                                     });
-                                    EventLogList.AddEventByLevel(5, $"{batchreq.PreFill?.Count ?? 0} invitations added to dispatch request for bulk token generation",BatchId,batchreq.DispatchID, reqDispatch.DeliveryPlanId);
+
+                                    EventLogList.AddEventByLevel(5, $"{batchreq.PreFill?.Count ?? 0} records accepted for further validation", BatchId,batchreq.DispatchID, reqDispatch.DeliveryPlanId);
 
                                 }
                             }
@@ -173,7 +174,7 @@ namespace XM.ID.Invitations.Net
             }
             catch (Exception ex)
             {
-                EventLogList.AddExceptionEvent(ex,BatchId ,null, null, null, "Getting details from cache failed");
+                EventLogList.AddExceptionEvent(ex,BatchId ,null, null, null, SharedSettings.CheckDispatchIDEx);
             }
         }
 
@@ -204,7 +205,7 @@ namespace XM.ID.Invitations.Net
                             continue;
                         }
 
-                        dispatch.Value.uniqueCustomerIDByPreFilledQuestionTag = 
+                        dispatch.Value.UniqueCustomerIDByPreFilledQuestionTag = 
                             deliveryPlan.uniqueCustomerIDByPreFilledQuestionTag;
                         if(string.IsNullOrEmpty(deliveryPlan.uniqueCustomerIDByPreFilledQuestionTag))
                         {
@@ -226,7 +227,7 @@ namespace XM.ID.Invitations.Net
             }
             catch (Exception ex)
             {
-                EventLogList.AddExceptionEvent(ex, BatchId, null, null, null, "Getting details from cache failed");
+                EventLogList.AddExceptionEvent(ex, BatchId, null, null, null, SharedSettings.GetChannelFromDPEx);
             }
         }
         
@@ -241,7 +242,7 @@ namespace XM.ID.Invitations.Net
             });
         }
 
-        private void AddtoResponsesAndEventLogs(ref List<Response> responses, ref LogEvent logEvents, string questionID, 
+        private void AddToResponsesAndEventLogs(ref List<Response> responses, ref LogEvent logEvents, string questionID, 
             string textInput, bool update=false)
         {
             if (update)
@@ -310,19 +311,23 @@ namespace XM.ID.Invitations.Net
                     try
                     {
                         if (!islocationMigrated)
-                            wxmHashAlgo = settingsRes?.locationList.Find(x => x.Name == dispatch.Value.questionnaireName)?.HashPIIBy;
+                            wxmHashAlgo = settingsRes?.locationList.Find(x => x.Name == dispatch.Value.QuestionnaireName)?.HashPIIBy;
                         else
                         {
                             if (!string.IsNullOrEmpty(SurverQuestionnaires))
                             {
                                 List<SurveyQuestionnaire> surveyQuestionnaire = JsonConvert.DeserializeObject<List<SurveyQuestionnaire>>(SurverQuestionnaires);
-                                wxmHashAlgo = surveyQuestionnaire?.Find(x => x.name == dispatch.Value.questionnaireName)?.hashPIIBy;
+                                wxmHashAlgo = surveyQuestionnaire?.Find(x => x.Name == dispatch.Value.QuestionnaireName)?.HashPIIBy;
                             }
                         }
 
                         if (string.IsNullOrEmpty(wxmHashAlgo))
                         {
-                            EventLogList.AddEventByLevel(5, SharedSettings.NoHashAlogConfigured, batchID);
+                            EventLogList.AddEventByLevel(5, SharedSettings.NoHashAlgoConfigured, batchID, dispatch.Key);
+                        } 
+                        else
+                        {
+                            EventLogList.AddEventByLevel(5, $"{SharedSettings.HashAlgoConfigured} {wxmHashAlgo}", batchID, dispatch.Key);
                         }
                         RequestBulkToken requestBulk = new RequestBulkToken()
                         {
@@ -346,7 +351,7 @@ namespace XM.ID.Invitations.Net
                                 DispatchId = dispatch.Key,
                                 BatchId = batchID,
                                 DeliveryWorkFlowId = dispatch.Value.DeliveryPlanID,
-                                Location = dispatch.Value.questionnaireName,
+                                Location = dispatch.Value.QuestionnaireName,
                                 Prefills = new List<Prefill>(),
                                 Tags = new List<string> {"UserData"}
                             };
@@ -356,10 +361,10 @@ namespace XM.ID.Invitations.Net
 
                             foreach (var record in prefill)
                             {
-                                var question = activeQuestions.Find(x => x.Id == record.questionId && (x.StaffFill || x.ApiFill));
+                                var question = activeQuestions.Find(x => x.Id == record.QuestionId && (x.StaffFill || x.ApiFill));
                                 if (question == null)
                                 {
-                                    invalidQuestionIdOrPrefill.Add(record.questionId);
+                                    invalidQuestionIdOrPrefill.Add(record.QuestionId);
                                     continue;
                                 }
                                 Response response = new Response
@@ -374,7 +379,7 @@ namespace XM.ID.Invitations.Net
                                     if (dispatch.Value.Channels.Contains("Email"))
                                     {
                                         recordChannel++;
-                                        bool emailStatus = Util.IsValidEmail(record.input);
+                                        bool emailStatus = Util.IsValidEmail(record.Input);
                                         if (!emailStatus)
                                         {
                                             failureFlag = true;
@@ -387,7 +392,7 @@ namespace XM.ID.Invitations.Net
                                     if (dispatch.Value.Channels.Contains("SMS"))
                                     {
                                         recordChannel++;
-                                        bool numberStatus = Util.IsValidMobile(record.input);
+                                        bool numberStatus = Util.IsValidMobile(record.Input);
                                         if (!numberStatus)
                                         {
                                             failureFlag = true;
@@ -396,21 +401,21 @@ namespace XM.ID.Invitations.Net
                                 }
 
                                 //Common identifier check.
-                                if (question.Id == dispatch.Value.uniqueCustomerIDByPreFilledQuestionTag)
+                                if (question.Id == dispatch.Value.UniqueCustomerIDByPreFilledQuestionTag)
                                 {
-                                    if (!string.IsNullOrWhiteSpace(record.input))
+                                    if (!string.IsNullOrWhiteSpace(record.Input))
                                         uuidrecord = true;
 
-                                    logEvent.Target = record.input;
+                                    logEvent.Target = record.Input;
 
                                     if ((question.piiSettings != null) && (question.piiSettings.isPII && (question.piiSettings.piiType == "hash")))
                                     {
-                                        var hashedrecord = hashAlgos.GetHashedValue(record.input, wxmHashAlgo);
+                                        var hashedrecord = hashAlgos.GetHashedValue(record.Input, wxmHashAlgo);
                                         logEvent.TargetHashed = hashedrecord;
                                     }
                                     else
                                     {
-                                        logEvent.TargetHashed = record.input;
+                                        logEvent.TargetHashed = record.Input;
                                     }
                                 }
 
@@ -420,31 +425,31 @@ namespace XM.ID.Invitations.Net
                                     logEvent.Prefills.Add(new Prefill()
                                     {
                                         QuestionId = question.Id,
-                                        Input = record.input,
-                                        Input_Hash = hashAlgos.GetHashedValue(record.input, wxmHashAlgo)
+                                        Input = record.Input,
+                                        Input_Hash = hashAlgos.GetHashedValue(record.Input, wxmHashAlgo)
                                     });
 
-                                    response.TextInput = hashAlgos.GetHashedValue(record.input, wxmHashAlgo);
+                                    response.TextInput = hashAlgos.GetHashedValue(record.Input, wxmHashAlgo);
                                 }
                                 else
                                 {
                                     logEvent.Prefills.Add(new Prefill()
                                     {
                                         QuestionId = question.Id,
-                                        Input = record.input,
-                                        Input_Hash = record.input
+                                        Input = record.Input,
+                                        Input_Hash = record.Input
                                     });
 
                                     if (numberTypeRegEx.IsMatch(question.DisplayType))
                                     {
-                                        if (int.TryParse(record.input, out int res))
+                                        if (int.TryParse(record.Input, out int res))
                                         {
                                             response.NumberInput = res;
                                         }
                                     }
                                     else
                                     {
-                                        response.TextInput = record.input;
+                                        response.TextInput = record.Input;
                                     }
                                 }
                                 responses.Add(response);
@@ -516,7 +521,7 @@ namespace XM.ID.Invitations.Net
                             var dpPrefill = activeQuestions.Find(x => x.QuestionTags.Contains("DeliveryPlanId"));
                             if (dpPrefill != null)
                             {
-                                AddtoResponsesAndEventLogs(ref responses, ref logEvent, dpPrefill.Id, 
+                                AddToResponsesAndEventLogs(ref responses, ref logEvent, dpPrefill.Id, 
                                     dispatch.Value.DeliveryPlanID);
                             }
 
@@ -524,7 +529,7 @@ namespace XM.ID.Invitations.Net
                             batchprefill = activeQuestions.Find(x => x.QuestionTags.Contains("BatchId"));
                             if (batchprefill != null)
                             {
-                                AddtoResponsesAndEventLogs(ref responses, ref logEvent, batchprefill.Id, batchID);
+                                AddToResponsesAndEventLogs(ref responses, ref logEvent, batchprefill.Id, batchID);
                             }
 
                             // Add static prefills from AccountConfigurations set using SPA front-end
@@ -539,13 +544,13 @@ namespace XM.ID.Invitations.Net
                                         if (temp != null)
                                         {
                                             // Remove the old values and override with this one
-                                            AddtoResponsesAndEventLogs(ref responses, ref logEvent, staticPrefill.QuestionId,
+                                            AddToResponsesAndEventLogs(ref responses, ref logEvent, staticPrefill.QuestionId,
                                             staticPrefill.PrefillValue, true);
                                         }
                                         else
                                         {
                                             // Add new value
-                                            AddtoResponsesAndEventLogs(ref responses, ref logEvent, staticPrefill.QuestionId,
+                                            AddToResponsesAndEventLogs(ref responses, ref logEvent, staticPrefill.QuestionId,
                                                 staticPrefill.PrefillValue);
                                         }
                                     }
@@ -577,11 +582,11 @@ namespace XM.ID.Invitations.Net
                             if (invalidQuestionIdOrPrefill?.Count>0) 
                             {
                                 //few records from the invites being removed with some question id
-                                EventLogList.AddEventByLevel(4, $"few or all Prefills with following question ids removed: {string.Join(',', invalidQuestionIdOrPrefill)}",BatchId,dispatch.Key);
-
+                                EventLogList.AddEventByLevel(4, $"{SharedSettings.PrefillsMissing} {string.Join(',', invalidQuestionIdOrPrefill)}", BatchId,dispatch.Key);
                             }
+
                             requestBulk.PrefillReponse = prefillResponses;
-                            requestBulk.UUID = dispatch.Value.uniqueCustomerIDByPreFilledQuestionTag;
+                            requestBulk.UUID = dispatch.Value.UniqueCustomerIDByPreFilledQuestionTag;
                             requestBulk.Batchid = batchprefill?.Id;
 
                             // Add records in batching queue
@@ -590,12 +595,13 @@ namespace XM.ID.Invitations.Net
                                 if (SharedSettings.AvailableQueues.TryGetValue(queueName, out IBatchingQueue<RequestBulkToken> batchingQueue))
                                 {
                                     batchingQueue.Insert(requestBulk);
-                                    EventLogList.AddEventByLevel(5, $"{prefillResponses?.Count ?? 0} records added to queue for bulk import to Queue {queueName}", BatchId, dispatch.Key);
+                                    EventLogList.AddEventByLevel(5, $"{prefillResponses?.Count ?? 0} records added to queue {queueName} for bulk token creation", BatchId, dispatch.Key);
                                 }
                             }
                             else
                             {
-                                EventLogList.AddEventByLevel(1, $"Batching queue missing", BatchId, dispatch.Key);
+                                EventLogList.AddEventByLevel(1, SharedSettings.BatchingQueueMissing, BatchId, dispatch.Key);
+                                return;
                             }
                             if (prefillFailCount == 0)
                             {
@@ -605,7 +611,8 @@ namespace XM.ID.Invitations.Net
                                     DispatchStatus = "202",
                                     Message = SharedSettings.AcceptedForProcessing //When all records for DispatchID were successful.
                                 });
-                                EventLogList.AddEventByLevel(5, $"{SharedSettings.AcceptedForProcessing} {dispatch.Value.PreFill.Count}", BatchId, dispatch.Key);
+
+                                EventLogList.AddEventByLevel(5, $"{SharedSettings.AcceptedForProcessing}: {dispatch.Value.PreFill.Count} records", BatchId, dispatch.Key);
                             }
                             else
                             {
@@ -627,7 +634,8 @@ namespace XM.ID.Invitations.Net
                     catch (Exception ex0)
                     {
                         EventLogList.AddExceptionEvent(ex0,batchID,dispatch.Key, 
-                            dispatch.Value?.DeliveryPlanID,dispatch.Value?.questionnaireName);
+                            dispatch.Value?.DeliveryPlanID,dispatch.Value?.QuestionnaireName, SharedSettings.CheckDispatchDataEx1);
+                        return;
                     }
                 }
 
@@ -636,7 +644,8 @@ namespace XM.ID.Invitations.Net
             }
             catch (Exception ex)
             {
-                EventLogList.AddExceptionEvent(ex, batchID);
+                EventLogList.AddExceptionEvent(ex, batchID, null, null, null, SharedSettings.CheckDispatchDataEx2);
+                return;
             }
         }
     }

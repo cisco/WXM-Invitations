@@ -215,8 +215,6 @@
                             <label for="debug-issue" class="form__label"> Send Debug Issue Notifications To </label>
                             <textarea type="text" id="d-notification" class="form__field resize"
                                 placeholder="Enter the Email Id"></textarea>
-                            <span id="error-d" class="error-noti">Some email(s) are in incorrect
-                                email format. Please check and try again.</span>
                             <span class="info">You can add multiple email IDs seprated by “;”</span>
                         </div>
                         <!-- Info issue noftification form field -->
@@ -224,8 +222,6 @@
                             <label for="info-notification" class="form__label"> Send Info Notifications To </label>
                             <textarea type="text" id="i-notification" class="form__field resize"
                                 placeholder="Enter the Email Id"></textarea>
-                            <span id="error-i" class="error-noti">Some email(s) are in incorrect
-                                email format. Please check and try again.</span>
                             <span class="info">You can add multiple email IDs seprated by “;”</span>
                         </div>
                         <!-- Send warning issue noftification form field -->
@@ -234,8 +230,6 @@
                             </label>
                             <textarea type="text" id="w-notification" class="form__field resize"
                                 placeholder="Enter the Email Id"></textarea>
-                            <span id="error-w" class="error-noti">Some email(s) are in incorrect
-                                email format. Please check and try again.</span>
                             <span class="info">You can add multiple email IDs seprated by “;”</span>
                         </div>
                         <!-- Send error issue noftification form field -->
@@ -244,8 +238,6 @@
                             </label>
                             <textarea type="text" id="e-notification" class="form__field resize"
                                 placeholder="Enter the Email Id"></textarea>
-                            <span id="error-e" class="error-noti">Some email(s) are in incorrect
-                                email format. Please check and try again.</span>
                             <span class="info">You can add multiple email IDs seprated by “;”</span>
                         </div>
                         <!-- Send Fatal issue noftification form field -->
@@ -253,9 +245,12 @@
                             <label for="fatal-issue" class="form__label"> Send Fatal Issue Notifications To </label>
                             <textarea type="text" id="f-notification" class="form__field resize"
                                 placeholder="Enter the Email Id"></textarea>
-                            <span id="error-f" class="error-noti">Some email(s) are in incorrect
-                                email format. Please check and try again.</span>
                             <span class="info">You can add multiple email IDs seprated by “;”</span>
+                        </div>
+
+                        <div class="super-admin-notification">
+                            <p><span onclick="getSuperAdminNotificationDetails()">Edit Super Admin Notifications</span></p>
+                            <span id="setSuperAdminNotificationData"> </span>
                         </div>
                     </div>
                     <!-- Queue block for Queue setup -->
@@ -266,7 +261,7 @@
                         <div class="form__group">
                             <!-- Showing the queue vendor details -->
                             <div class="select">
-                                <label for="Azure" class="form__label">Queue Vendor</label>
+                                <label for="Azure" class="form__label">Queue Type</label>
                                 <p id="Queue-Vendor-name"></p>
                                 <span id="queue-vendor-name-error">Details unavailable. Please check this in Experience
                                     Management.</span>
@@ -275,11 +270,14 @@
                         </div>
                         <!-- Showing the Storage Account details -->
                         <div class="form__group  ">
-                            <label for="storage-account" class="form__label"> Storage Account Connection String
+                            <label for="storage-account" class="form__label"> Queue Connection String
                             </label>
                             <p id="Storage-Account"></p>
                             <span id="storage-account-error">Details unavailable. Please check this in Experience
                                 Management.</span>
+                                
+
+                            <span class="info" style="margin-top: 30px;">To edit queue settings, please go to Experience Managament >> CX Setup >> Account Settings >> Integrations</span>
                         </div>
                     </div>
                     <!-- Send the updated dispatcher request to the API Static response and notification  -->
@@ -490,25 +488,30 @@
             </form>
         </div>
     </div>
-    <!-- Add new vendor in a modal here -->
-    <!-- <div id="newVendorOpenPopup" class="modal">
-          Modal content
-         <div class="modal-content">
-            <div class="heading">
-                <h1>New Vendor</h1>
-            </div>
-             <form id="newVendorFormId">
-                ...............
-                <div class="form__group">
-                    <label for="vendorAPIKey" class="form__label">Api Key</label>
-                    <input type="text" id="vendorAPIKey" name="ApiKey" value="" class="form__field" required
-                        placeholder="Enter Api Key">
-                </div>
-                 ...............
+    <div id="superAdminNotificationPopup" class="modal">
 
-             </form>
+        <!-- Modal content -->
+        <div class="modal-content">
+            <div class="heading">
+                <h1>Edit Super Admin Notifications</h1>
+            </div>
+            <p>All error and failures that are not linked to any specific dispatch will be sent as account level super admin notifications.</p>
+            <form id="superAdminform">
+                <div class="form__group  ">
+                    <label for="admin-notification-multi-email" class="form__label"> Send Noti!cations To
+                    </label>
+                    <textarea type="text" id="admin-notification-multi-email" value="" class="form__field resize"
+                        placeholder="Enter the Email Id"></textarea>
+                    <span class="info">You can add multiple email IDs seprated by “;”</span>
+                </div>
+                <!-- Save and Cancel button -->
+                <div class="buttons">
+                    <div><button class="button-save" onclick="superAdminNotificationUpdateAPI(event)">Save Changes</button></div>
+                    <div><button id="superAdminNotiCancel" class="button-cancel">Cancel</button></div>
+                </div>
+            </form>
         </div>
-    </div> -->
+    </div>
 </body>
 <script src="js/main.js"></script>
 <script>
@@ -517,6 +520,7 @@
     var customSmsOpen = document.getElementById("customSmsOpenPopup"); //Open Custom SMS Popup
     var messageBirdOpen = document.getElementById("messageBirdOpenPopup"); //Open Message Bird Popup
     var sparkPostOpen = document.getElementById("sparkPostOpenPopup"); //Open sparPost Popup
+    var superAdminNotiOpen = document.getElementById("superAdminNotificationPopup"); //Open sparPost Popup
     /**
      * Add the new vendor modal with right ID
      * */
@@ -526,7 +530,7 @@
     var CustomSmsCancel = document.getElementById("customSmsPopupCancel");
     var messagebirdCancel = document.getElementById("messagebirdPopupCancel");
     var sparkPostCancel = document.getElementById("sparkPostPopupCancel");
-
+    var superAdminNotiCancel = document.getElementById("superAdminNotiCancel");
     // When the user clicks on button (x), close the modal
     CustomSmptCancel.onclick = function (event) {
         event.preventDefault();
@@ -535,12 +539,6 @@
             "overflow": "auto"
         });
         $(".form-error-msg").hide();
-        document.getElementById("getSenderName").value = "";
-        document.getElementById("getEmailAddress").value = "";
-        document.getElementById("getSmtpServer").value = "";
-        document.getElementById("getSmtpUsername").value = "";
-        document.getElementById("getSmtpPassword").value = "";
-        document.getElementById("getPort").value = "false";
     }
     CustomSmsCancel.onclick = function (event) {
         event.preventDefault();
@@ -552,6 +550,8 @@
         document.getElementById("getSmsurl").value = "";
     }
 
+   
+
     messagebirdCancel.onclick = function (event) {
         event.preventDefault();
         messageBirdOpen.style.display = "none";
@@ -559,10 +559,6 @@
             "overflow": "auto"
         });
         $(".form-error-msg").hide();
-        document.getElementById("getMessageUrl").value = "";
-        document.getElementById("getAccessKey").value = "";
-        document.getElementById("getOriginator").value = "";
-        document.getElementById("getShortCode").value = "";
     }
     sparkPostCancel.onclick = function (event) {
         event.preventDefault();
@@ -571,11 +567,15 @@
             "overflow": "auto"
         });
         $(".form-error-msg").hide();
-        document.getElementById("getSparkUrl").value = "";
-        document.getElementById("getSparkApiKey").value = "";
-        document.getElementById("getSparkSenderEmail").value = "";
-        document.getElementById("getSparkSenderName").value = "";
-        document.getElementById("getSparkBatchSize").value = "";
+    }
+
+    superAdminNotiCancel.onclick = function (event) {
+        event.preventDefault();
+        superAdminNotiOpen.style.display = "none";
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".form-error-msg").hide();
     }
 
     // email vendorname display popup
@@ -601,6 +601,14 @@
     }
 
     // sms vendorname display popup
+
+   function  getSuperAdminNotificationDetails() {
+       getSuperAdminNotificationData();
+            $("body").css({
+                "overflow": "hidden"
+            });
+            superAdminNotiOpen.style.display = "block";
+    }
 
     function getsmsvendorbyname(event) {
         event.preventDefault();

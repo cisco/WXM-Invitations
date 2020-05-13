@@ -15,29 +15,29 @@ namespace XM.ID.Dispatcher.Net
         /// <summary>
         /// Creates a Log-Event to capture application-level + invitation-level logs
         /// </summary>
-        /// <param name="azureQueueData"></param>
+        /// <param name="queueData"></param>
         /// <param name="logMessage"></param>
         /// <returns></returns>
-        public static LogEvent CreateLogEvent(AzureQueueData azureQueueData, LogMessage logMessage)
+        public static LogEvent CreateLogEvent(QueueData queueData, LogMessage logMessage)
         {
             var UtcNow = DateTime.UtcNow;
             return new LogEvent
             {
-                BatchId = azureQueueData?.BatchId,
+                BatchId = queueData?.BatchId,
                 Created = UtcNow,
                 DeliveryWorkFlowId = null,
-                DispatchId = azureQueueData?.DispatchId,
+                DispatchId = queueData?.DispatchId,
                 Events = null,
                 Id = ObjectId.GenerateNewId().ToString(),
                 Location = null,
                 LogMessage = logMessage,
-                Prefills = azureQueueData?.MappedValue?.ToList()?.Select(x => new Prefill { QuestionId = x.Key, Input = null, Input_Hash = x.Value })?.ToList(),
+                Prefills = queueData?.MappedValue?.ToList()?.Select(x => new Prefill { QuestionId = x.Key, Input = null, Input_Hash = x.Value })?.ToList(),
                 Tags = new List<string> { "Dispatcher" },
                 Target = null,
-                TargetHashed = azureQueueData?.CommonIdentifier,
-                TokenId = azureQueueData?.TokenId,
+                TargetHashed = queueData?.CommonIdentifier,
+                TokenId = queueData?.TokenId,
                 Updated = UtcNow,
-                User = azureQueueData?.User
+                User = queueData?.User
             };
         }
 
@@ -46,10 +46,10 @@ namespace XM.ID.Dispatcher.Net
         /// </summary>
         /// <param name="eventAction"></param>
         /// <param name="eventChannel"></param>
-        /// <param name="azureQueueData"></param>
+        /// <param name="queueData"></param>
         /// <param name="logMessage"></param>
         /// <returns></returns>
-        public static InvitationLogEvent CreateInvitationLogEvent(EventAction eventAction, EventChannel eventChannel, AzureQueueData azureQueueData, LogMessage logMessage)
+        public static InvitationLogEvent CreateInvitationLogEvent(EventAction eventAction, EventChannel eventChannel, QueueData queueData, LogMessage logMessage)
         {
             return new InvitationLogEvent
             {
@@ -57,9 +57,9 @@ namespace XM.ID.Dispatcher.Net
                 Channel = eventChannel,
                 EventStatus = null,
                 LogMessage = logMessage,
-                Message = $"Message Template Id: {azureQueueData?.TemplateId} | Additional Token Parameters: {azureQueueData.AdditionalURLParameter}",
-                TargetId = eventChannel==EventChannel.Email ? azureQueueData?.EmailId : 
-                eventChannel == EventChannel.SMS ? azureQueueData?.MobileNumber : eventChannel.ToString(),
+                Message = $"Message Template Id: {queueData?.TemplateId} | Additional Token Parameters: {queueData.AdditionalURLParameter}",
+                TargetId = eventChannel == EventChannel.Email ? queueData?.EmailId :
+                eventChannel == EventChannel.SMS ? queueData?.MobileNumber : eventChannel.ToString(),
                 TimeStamp = DateTime.UtcNow
             };
         }
@@ -108,11 +108,11 @@ namespace XM.ID.Dispatcher.Net
                 if (writeBuilder.Count > 0)
                     await Resources.GetInstance().LogEventCollection.BulkWriteAsync(writeBuilder);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 await FlushLogs(new List<LogEvent> { CreateLogEvent(null, IRDLM.InternalException(ex)) });
             }
-            
+
         }
 
         internal static async Task FlushLogs(List<LogEvent> logEvents)
@@ -183,62 +183,62 @@ namespace XM.ID.Dispatcher.Net
         #region Hash-Look-Up
         /// <summary>
         /// Performs Hash-Look-Ups for PII Data if the received 
-        /// AzureQueueData-Object's Subject/Text-Body/Html-Body
+        /// QueueData-Object's Subject/Text-Body/Html-Body
         /// utilizes WXM Tag-Substitution.
         /// </summary>
-        /// <param name="azureQueueData"></param>
-        public static void PerformLookUps(AzureQueueData azureQueueData)
+        /// <param name="queueData"></param>
+        public static void PerformLookUps(QueueData queueData)
         {
             try
             {
                 string matchString = @"\$(\w+)\*\|(.*?)\|\*";
 
                 //Subject
-                if (!string.IsNullOrWhiteSpace(azureQueueData.Subject))
+                if (!string.IsNullOrWhiteSpace(queueData.Subject))
                 {
-                    StringBuilder newSubject = new StringBuilder(azureQueueData.Subject);
-                    foreach (Match m in Regex.Matches(azureQueueData.Subject, matchString, RegexOptions.Multiline))
+                    StringBuilder newSubject = new StringBuilder(queueData.Subject);
+                    foreach (Match m in Regex.Matches(queueData.Subject, matchString, RegexOptions.Multiline))
                     {
                         string qid = m.Groups[1].Value;
                         string defaultValue = m.Groups[2].Value;
-                        if (azureQueueData.MappedValue.ContainsKey(qid))
-                            newSubject.Replace(m.Groups[0].Value, azureQueueData.MappedValue[qid]);
+                        if (queueData.MappedValue.ContainsKey(qid))
+                            newSubject.Replace(m.Groups[0].Value, queueData.MappedValue[qid]);
                         else
                             newSubject.Replace(m.Groups[0].Value, defaultValue);
                     }
-                    azureQueueData.Subject = newSubject.ToString();
+                    queueData.Subject = newSubject.ToString();
                 }
 
                 //HTML Body
-                if (!string.IsNullOrWhiteSpace(azureQueueData.HTMLBody))
+                if (!string.IsNullOrWhiteSpace(queueData.HTMLBody))
                 {
-                    StringBuilder newHtmlBody = new StringBuilder(azureQueueData.HTMLBody);
-                    foreach (Match m in Regex.Matches(azureQueueData.HTMLBody, matchString, RegexOptions.Multiline))
+                    StringBuilder newHtmlBody = new StringBuilder(queueData.HTMLBody);
+                    foreach (Match m in Regex.Matches(queueData.HTMLBody, matchString, RegexOptions.Multiline))
                     {
                         string qid = m.Groups[1].Value;
                         string defaultValue = m.Groups[2].Value;
-                        if (azureQueueData.MappedValue.ContainsKey(qid))
-                            newHtmlBody.Replace(m.Groups[0].Value, azureQueueData.MappedValue[qid]);
+                        if (queueData.MappedValue.ContainsKey(qid))
+                            newHtmlBody.Replace(m.Groups[0].Value, queueData.MappedValue[qid]);
                         else
                             newHtmlBody.Replace(m.Groups[0].Value, defaultValue);
                     }
-                    azureQueueData.HTMLBody = newHtmlBody.ToString();
+                    queueData.HTMLBody = newHtmlBody.ToString();
                 }
 
                 //Text Body
-                if (!string.IsNullOrWhiteSpace(azureQueueData.TextBody))
+                if (!string.IsNullOrWhiteSpace(queueData.TextBody))
                 {
-                    StringBuilder newTextBody = new StringBuilder(azureQueueData.TextBody);
-                    foreach (Match m in Regex.Matches(azureQueueData.TextBody, matchString, RegexOptions.Multiline))
+                    StringBuilder newTextBody = new StringBuilder(queueData.TextBody);
+                    foreach (Match m in Regex.Matches(queueData.TextBody, matchString, RegexOptions.Multiline))
                     {
                         string qid = m.Groups[1].Value;
                         string defaultValue = m.Groups[2].Value;
-                        if (azureQueueData.MappedValue.ContainsKey(qid))
-                            newTextBody.Replace(m.Groups[0].Value, azureQueueData.MappedValue[qid]);
+                        if (queueData.MappedValue.ContainsKey(qid))
+                            newTextBody.Replace(m.Groups[0].Value, queueData.MappedValue[qid]);
                         else
                             newTextBody.Replace(m.Groups[0].Value, defaultValue);
                     }
-                    azureQueueData.TextBody = newTextBody.ToString();
+                    queueData.TextBody = newTextBody.ToString();
                 }
 
             }
@@ -253,21 +253,21 @@ namespace XM.ID.Dispatcher.Net
         /// <summary>
         /// Generate a Survey-URL using the Token-Number & Additional-Parameters of the queue message and the configured Survey-Base-Domain
         /// </summary>
-        /// <param name="azureQueueData"></param>
+        /// <param name="queueData"></param>
         /// <returns>Token-Number & Additional-Parameters specific Survey-URL</returns>
-        public static string GetSurveyURL(AzureQueueData azureQueueData)
+        public static string GetSurveyURL(QueueData queueData)
         {
-            return $"http://{Resources.GetInstance().SurveyBaseDomain}/{azureQueueData.TokenId}{azureQueueData.AdditionalURLParameter}";
+            return $"http://{Resources.GetInstance().SurveyBaseDomain}/{queueData.TokenId}{queueData.AdditionalURLParameter}";
         }
 
         /// <summary>
         /// Generate an Unsubscribe-URL using the Token-Number of the queue message
         /// </summary>
-        /// <param name="azureQueueData"></param>
+        /// <param name="queueData"></param>
         /// <returns>Token-Number specific Unsubscribe-URL</returns>
-        public static string GetUnsubscribeURL(AzureQueueData azureQueueData)
+        public static string GetUnsubscribeURL(QueueData queueData)
         {
-            return $"{Resources.GetInstance().UnsubscribeBaseUrl}{azureQueueData.TokenId}";
+            return $"{Resources.GetInstance().UnsubscribeBaseUrl}{queueData.TokenId}";
         }
         #endregion
     }
