@@ -30,11 +30,24 @@ Global delivery invitation management enables a personalized experience for rece
 
 ## High level module workflow
 
-The following diagram provides a high-level view of the workflow of the Invitations module.
+The following diagram shows at a high level how CCX/CCE/WCC consumes the Experience Management Invitations feature to send surveys to customers over emails and SMS.
 
-![](https://cloudcherry.com/docs/delivery-Policy-screen-shot/invitations-delivery-architecture/invitation-delivery-architecture-step2.png)
+![](https://cloudcherry.com/docs/delivery-Policy-screen-shot/invitations-delivery-architecture/3rd-party-system-with-Invitations.PNG)
 
-The Invitations solution would be a single-tenant public or private cloud hosted Invitations module that would interface with the multi-tenant SaaS Experience Management. Everything on the left-hand side of the above diagram encapsulates the Invitations module solution and everything on the right-hand side depicts the multi-tenant SaaS modules.
+<br>
+
+The "Dispatch request API" becomes the entry point for Cisco contact centre products or 3rd party systems such as CRMs to consume the Experience Management Invitations feature. Various elements of the infrastructure provisioned in AWS/Azure cloud to host the "cloud hosted module" of the Invitations feature is covered in the above diagram.
+
+Cisco Contact Centre Express and Cisco Contact Centre Enterprise suite of contact center products have integrated Experience Management Invitations feature already. To consume the Invitations feature reference implementation as is, no development effort is warranted. Simply provisioning the infrastructure required to deploy the "cloud hosted module" of invitations feature and then subsequently deploying the "cloud hosted module" on the provisioned infrastructure and configuring the Invitations end to end is sufficient to configure "Cross Channel surveys" in CCX/CCE/WCC.
+
+The following diagram zooms into and provides a high-level view of the workflow of the Invitations feature itself.
+
+![](https://cloudcherry.com/docs/delivery-Policy-screen-shot/invitations-delivery-architecture/invitation-delivery-architecture-step2new.png)
+
+<br>
+
+The Cloud hosted module of the Invitation solution would be a single-tenant AWS/Microsoft Azure cloud hosted module that would interface with the multi-tenant SaaS Experience Management. Everything on the left-hand side of the above diagram encapsulates the Cloud hosted module of the Invitations solution and everything on the right-hand side depicts the multi-tenant SaaS modules. Both modules work together to form the Experience Management Invitations feature.
+
 
 The various components which are a part of the Invitations module is as given below:
  - Dispatch request: This is the entry point into the Invitations module. A 3rd party system can make an API request to the invitations module to initiate an email/SMS send
