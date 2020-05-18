@@ -2,7 +2,7 @@
 
 ## Introducing Experience Management invitations solution
 
-In an economy where customer experience trumps price and product, the Cisco Webex Experience Management (referred to as Experience Management here on in the document) platform helps organizations exceed customer expectations and deliver business outcomes through its three pillars of customer experience:
+In an economy where customer experience trumps price and product, the Cisco Webex Experience Management (referred to as Experience Management here after) platform helps organizations exceed customer expectations and deliver business outcomes through its three pillars of customer experience:
 
  - Measuring the customer journey: Understanding the customer experience through a continuous collection of moments across their journey.
 
@@ -62,7 +62,3 @@ Please refer the following documents for consuming this open sourced code base a
  - Webex Experience Management invitations Module Architecture - This document details the architecture of the Invitations module in depth. Link -  https://cloudcherry.com/docs/cxsetup/guides/partnerarchitecture/
  - Partner hosted infra provisioning doc - This document explains how to provision the infrastructure required to deploy the Partner hosted components of the Invitations module. Link -  https://cloudcherry.com/docs/cxsetup/guides/partnerinfra/
  - Partner hosted Module deployment guide - This document explains how to deploy the partner hosted components of the invitations module once the infra is provisioned. Link -  https://cloudcherry.com/docs/cxsetup/guides/partnerdeployment/
-
-Please note that this version supports deployment on Microsoft Azure Private cloud. We will be releasing an update with support for AWS private cloud before end of May 2020. The new version planned will also have “Notifications” feature which is currently unavailable in this version.
-
-
