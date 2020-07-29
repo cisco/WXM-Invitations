@@ -9,7 +9,7 @@ var isProduction = false;
 var customBaseURL = sessionStorage.getItem("customBaseURL");
 
 
-var BASE_URL = "https://solutions-dev.getcloudcherry.com:8801";
+var BASE_URL = "{DispatchAPI_Base_URL}";
 
 
 /**
