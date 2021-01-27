@@ -4,20 +4,40 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace XM.ID.Invitations.Net
+namespace XM.ID.Net
 {
     public class WXMService
     {
-        private HttpClient HttpClient;
-        
-        public WXMService()
+        private const string ALL_DISPATCH_API_URI = "/api/Dispatches";
+        private const string SURVEY_QUESTIONNAIRE = "/api/AllSurveyQuestionnaires";
+        private const string ALL_Delivery_ID = "/api/DeliveryPlan";
+        private const string ACTIVE_QUES = "/api/Questions/Active";
+        private const string BULK_TOKEN_API = "/api/SurveyByToken/Import/Dispatch";
+        private const string SETTINGS_API = "/api/settings";
+        private const string GET_PROFILE = "/api/Profile";
+        private const string GET_APIKEY_API = "/api/GetAPIKey";
+        private const string GET_DISPATCHES_API = "/api/Dispatches";
+        private const string GET_DELIVERY_EVENT_BY_TARGET = "/api/DeliveryEventsBy/Target";
+        private const string GET_DELIVERY_PLANS_API = "/api/DeliveryPlan";
+        private const string GET_ACTIVE_QUES_API = "/api/Questions/Active";
+        private const string GET_LOGIN_TOKEN_API = "/api/logintoken";
+        private const string GET_DISPATCH_BY_ID_API = "/api/Dispatches/";
+        private const string GET_DP_BY_ID_API = "/api/DeliveryPlan/";
+        private const string GET_QUES_BY_QNR_API = "/api/Questions/Questionnaire";
+        private const string GET_LOGIN_TOKEN = "/api/LoginToken";
+        private string BASE_URL;
+
+        private readonly HttpClient HttpClient;
+
+        public WXMService(string baseUrl)
         {
             HttpClient = new HttpClient();
+            BASE_URL = baseUrl;
         }
-        
+
         public async Task<BearerToken> GetLoginToken(string username, string password)
         {
-            string requestUri = SharedSettings.BASE_URL + SharedSettings.GET_LOGIN_TOKEN_API;
+            string requestUri = BASE_URL + GET_LOGIN_TOKEN_API;
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, requestUri);
             List<KeyValuePair<string, string>> requestPostValues = new List<KeyValuePair<string, string>>
             {
@@ -35,7 +55,7 @@ namespace XM.ID.Invitations.Net
             BearerToken bearerToken = JsonConvert.DeserializeObject<BearerToken>(stringBearerToken);
             return bearerToken;
         }
-           
+
         private async Task<T> MakeHttpRequestAsync<T>(string bearerToken, string httpMethod, string requestUri, string jsonBody = null)
         {
             HttpRequestMessage request = httpMethod switch
@@ -47,7 +67,7 @@ namespace XM.ID.Invitations.Net
                 _ => new HttpRequestMessage(HttpMethod.Options, requestUri),
             };
             request.Headers.Add("Authorization", bearerToken);
-            if(!string.IsNullOrWhiteSpace(jsonBody))
+            if (!string.IsNullOrWhiteSpace(jsonBody))
                 request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -60,52 +80,63 @@ namespace XM.ID.Invitations.Net
 
         public async Task<string> GetAPIKey(string bearerToken)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.GET_APIKEY_API;
+            string uri = BASE_URL + GET_APIKEY_API;
             return await MakeHttpRequestAsync<string>(bearerToken, "GET", uri);
+        }
+
+        public async Task<List<DeliveryEventsByTarget>> GetDeliveryEventsBy(string bearerToken, string targetid)
+        {
+            string uri = BASE_URL + GET_DELIVERY_EVENT_BY_TARGET + "/" + targetid;
+            return await MakeHttpRequestAsync<List<DeliveryEventsByTarget>>(bearerToken, "GET", uri);
         }
 
         public async Task<List<Dispatch>> GetDispatches(string bearerToken)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.GET_DISPATCHES_API;
+            string uri = BASE_URL + GET_DISPATCHES_API;
             return await MakeHttpRequestAsync<List<Dispatch>>(bearerToken, "GET", uri);
         }
 
         public async Task<List<DeliveryPlan>> GetDeliveryPlans(string bearerToken)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.GET_DELIVERY_PLANS_API;
+            string uri = BASE_URL + GET_DELIVERY_PLANS_API;
             return await MakeHttpRequestAsync<List<DeliveryPlan>>(bearerToken, "GET", uri);
         }
 
         public async Task<List<Question>> GetActiveQuestions(string bearerToken)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.GET_ACTIVE_QUES_API;
+            string uri = BASE_URL + GET_ACTIVE_QUES_API;
             return await MakeHttpRequestAsync<List<Question>>(bearerToken, "GET", uri);
+        }
+        public async Task<Profile> GetProfile(string bearerToken)
+        {
+            string uri = BASE_URL + GET_PROFILE;
+            return await MakeHttpRequestAsync<Profile>(bearerToken, "GET", uri);
         }
 
         public async Task<Settings> GetSettings(string bearerToken)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.SETTINGS_API;
+            string uri = BASE_URL + SETTINGS_API;
             return await MakeHttpRequestAsync<Settings>(bearerToken, "GET", uri);
         }
 
         public async Task<Dispatch> GetDispatchById(string bearerToken, string dispatchId)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.GET_DISPATCH_BY_ID_API + dispatchId;
+            string uri = BASE_URL + GET_DISPATCH_BY_ID_API + dispatchId;
             return await MakeHttpRequestAsync<Dispatch>(bearerToken, "GET", uri);
         }
 
         public async Task<DeliveryPlan> GetDeliveryPlanById(string bearerToken, string deliveryPlanId)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.GET_DP_BY_ID_API + deliveryPlanId;
+            string uri = BASE_URL + GET_DP_BY_ID_API + deliveryPlanId;
             return await MakeHttpRequestAsync<DeliveryPlan>(bearerToken, "GET", uri);
         }
 
         public async Task<List<Question>> GetQuestionsByQNR(string bearerToken, string qnr)
         {
-            string uri = SharedSettings.BASE_URL + SharedSettings.GET_QUES_BY_QNR_API;
+            string uri = BASE_URL + GET_QUES_BY_QNR_API;
             Dictionary<string, string> body = new Dictionary<string, string>
             {
-                {"name",qnr }
+                {"name", qnr }
             };
             string jsonBody = JsonConvert.SerializeObject(body);
             return await MakeHttpRequestAsync<List<Question>>(bearerToken, "POST", uri, jsonBody);

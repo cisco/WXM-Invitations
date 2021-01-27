@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Mail;
 using System.Text;
+using XM.ID.Net;
 
 namespace InvitationNotification
 {

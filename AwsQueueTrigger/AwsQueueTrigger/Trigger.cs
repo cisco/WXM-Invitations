@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using XM.ID.Dispatcher.Net;
 using XM.ID.Dispatcher.Net.DispatchVendors;
+using XM.ID.Net;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
 namespace AwsQueueTrigger

@@ -2,8 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Invitations.Net
 {
@@ -140,6 +142,75 @@ namespace XM.ID.Invitations.Net
             try
             {
                 string responseBody = await SendAsync(SharedSettings.BASE_URL + SharedSettings.SETTINGS_API, FinalToken);
+
+                if (!string.IsNullOrEmpty(responseBody))
+                    return responseBody;
+                else
+                    return null; // if no response, considering invalid user
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        //heavy object so not caching
+        //All WXM related data that is necessary for reporting
+        public async Task<List<WXMDeliveryEvents>> GetWXMOperationMetrics(WXMMergedEventsFilter filter, string bearer)
+        {
+            if (filter == null || bearer == null)
+                return null;
+
+            try
+            {
+                var client = new HttpClient();
+
+                var json = JsonConvert.SerializeObject(filter);
+                var data = new StringContent(json, Encoding.UTF8, "application/json");
+
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await client.PostAsync(SharedSettings.BASE_URL + SharedSettings.GET_WXM_MERGED_DATA, data);
+
+                if ((int)response.StatusCode == 200)
+                {
+                    string result = response.Content.ReadAsStringAsync().Result;
+
+                    return JsonConvert.DeserializeObject<List<WXMDeliveryEvents>>(result);
+                }
+
+                return null;
+            }
+            catch (Exception e)
+            {
+                return null;
+            }
+        }
+
+        public async Task<string> GetUserProfile(string FinalToken)
+        {
+            try
+            {
+                string responseBody = await SendAsync(SharedSettings.BASE_URL + SharedSettings.GET_USER_PROFILE, FinalToken);
+
+                if (!string.IsNullOrEmpty(responseBody))
+                    return responseBody;
+                else
+                    return null; // if no response, considering invalid user
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        public async Task<string> GetContentTemplates(string FinalToken)
+        {
+            try
+            {
+                string responseBody = await SendAsync(SharedSettings.BASE_URL + SharedSettings.GET_CONTENT_TEMPLATES, FinalToken);
 
                 if (!string.IsNullOrEmpty(responseBody))
                     return responseBody;

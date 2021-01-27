@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Dispatcher.Net
 {
@@ -64,32 +65,15 @@ namespace XM.ID.Dispatcher.Net
             };
         }
 
-        internal static bool IsLogInsertible(LogMessage logMessage)
-        {
-            int level;
-            if (logMessage == null)
-                return true;
-            else if (logMessage.Level == LogMessage.SeverityLevel_Critical)
-                level = 1;
-            else if (logMessage.Level == LogMessage.SeverityLevel_Error)
-                level = 2;
-            else if (logMessage.Level == LogMessage.SeverityLevel_Warning)
-                level = 3;
-            else if (logMessage.Level == LogMessage.SeverityLevel_Information)
-                level = 4;
-            else if (logMessage.Level == LogMessage.SeverityLevel_Verbose)
-                level = 5;
-            else
-                level = 10;
-            return level <= Resources.GetInstance().LogLevel;
-        }
-
         internal static async Task FlushLogs(List<MessagePayload> messagePayloads)
         {
             try
             {
                 List<LogEvent> logEvents = new List<LogEvent>();
-                messagePayloads.ForEach(x => logEvents.AddRange(x.LogEvents.Where(y => IsLogInsertible(y.LogMessage))));
+                messagePayloads.ForEach(x => logEvents.AddRange(
+                    x.LogEvents.Where(y => y.LogMessage.IsLogInsertible(Resources.GetInstance().LogLevel))
+                    ));
+
                 if (logEvents.Count > 0)
                     await Resources.GetInstance().LogEventCollection.InsertManyAsync(logEvents);
 
@@ -117,7 +101,9 @@ namespace XM.ID.Dispatcher.Net
 
         internal static async Task FlushLogs(List<LogEvent> logEvents)
         {
-            await Resources.GetInstance().LogEventCollection.InsertManyAsync(logEvents.Where(x => IsLogInsertible(x.LogMessage)));
+            await Resources.GetInstance().LogEventCollection.InsertManyAsync(
+                logEvents.Where(x => x.LogMessage.IsLogInsertible(Resources.GetInstance().LogLevel))
+                );
         }
         #endregion
 
@@ -268,6 +254,16 @@ namespace XM.ID.Dispatcher.Net
         public static string GetUnsubscribeURL(QueueData queueData)
         {
             return $"{Resources.GetInstance().UnsubscribeBaseUrl}{queueData.TokenId}";
+        }
+
+        /// <summary>
+        /// To encode TextBody for YESBNK with proper values.
+        /// </summary>
+        /// <param name="TextBody">SMS body.</param>
+        /// <returns></returns>
+        public static string EncodeTextBody(string TextBody)
+        {
+            return TextBody.Replace("&", "amp;").Replace("#", ";hash").Replace("+", "plus;").Replace(",", "comma;");
         }
         #endregion
     }

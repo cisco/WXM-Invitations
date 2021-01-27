@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Invitations.Net
 {
@@ -28,7 +29,7 @@ namespace XM.ID.Invitations.Net
             else if (level == 4)
                 CriticalityLevel = LogMessage.SeverityLevel_Warning;
             else
-                CriticalityLevel = LogMessage.SeverityLevel_Debug;
+                CriticalityLevel = LogMessage.SeverityLevel_Verbose;
 
             var logEvent = new LogEvent()
             {

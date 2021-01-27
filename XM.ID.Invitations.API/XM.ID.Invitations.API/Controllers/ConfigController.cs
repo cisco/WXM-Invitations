@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using XM.ID.Invitations.Net;
+using XM.ID.Net;
 
 namespace Invitations.Controllers
 {
@@ -119,6 +120,55 @@ namespace Invitations.Controllers
         }
 
         [HttpGet]
+        [Route("smtpsetting")]
+        public async Task<IActionResult> GetSMTPSettings([FromHeader(Name = "Authorization")] string authToken)
+        {
+            ACMGenericResult<CustomSMTPSetting> response;
+            if (!(await AuthTokenValidation.ValidateBearerToken(authToken)))
+            {
+                return Unauthorized(SharedSettings.AuthorizationDenied);
+            }
+            else
+            {
+                response = await ConfigService.GetSmtpSetting();
+            }
+            return StatusCode(response.StatusCode, response.Value);
+        }
+
+        [HttpPost]
+        [Route("smtpsetting")]
+        public async Task<IActionResult> AddOrUpdateSMTPSetting([FromHeader(Name = "Authorization")] string authToken, 
+            [FromBody] CustomSMTPSetting customSMTPSettings)
+        {
+            ACMGenericResult<CustomSMTPSetting> response;
+            if (!(await AuthTokenValidation.ValidateBearerToken(authToken)))
+            {
+                return Unauthorized(SharedSettings.AuthorizationDenied);
+            }
+            else
+            {
+                response = await ConfigService.AddOrUpdateSMTPSetting(customSMTPSettings);
+            }
+            return StatusCode(response.StatusCode, response.Value);
+        }
+
+        [HttpGet]
+        [Route("checkmail/{tomail}")]
+        public async Task<IActionResult> CheckSMTPSettings([FromHeader(Name = "Authorization")] string authToken, string tomail)
+        {
+            ACMGenericResult<string> response;
+            if (!(await AuthTokenValidation.ValidateBearerToken(authToken)))
+            {
+                return Unauthorized(SharedSettings.AuthorizationDenied);
+            }
+            else
+            {
+                response = await ConfigService.CheckSmtpSetting(tomail);
+            }
+            return StatusCode(response.StatusCode, response.Value);
+        }
+
+        [HttpGet]
         [Route("extendedproperties")]
         public async Task<IActionResult> GetExtendedProperties([FromHeader(Name = "Authorization")] string authToken)
         {
@@ -131,6 +181,7 @@ namespace Invitations.Controllers
             {
                 response = await ConfigService.GetExtendedProperties();
             }
+
             return StatusCode(response.StatusCode, response.Value);
         }
 
@@ -147,6 +198,7 @@ namespace Invitations.Controllers
             {
                 response = await ConfigService.UpdateExtendedProperties(extendedProperties);
             }
+            
             return StatusCode(response.StatusCode, response.Value);
         }
 
@@ -163,6 +215,31 @@ namespace Invitations.Controllers
             {
                 response = await ConfigService.DeleteAccountConfiguration();
             }
+            return StatusCode(response.StatusCode, response.Value);
+        }
+
+        [HttpPost]
+        [Route("EventLogs")]
+        public async Task<IActionResult> GetEventLog([FromHeader(Name = "Authorization")] string authToken,
+            ActivityFilter filterObject)
+        {
+            //{"Token":"", "FromDate":"", "ToDate": "", "UUID":""} request format
+
+            // Validate Auth token(Basic or Bearer) and reject if fail.
+            if (!await AuthTokenValidation.ValidateBearerToken(authToken))
+            {
+                return Unauthorized(SharedSettings.AuthorizationDenied);
+            }
+
+            if (string.IsNullOrWhiteSpace(filterObject.Token) &&
+                string.IsNullOrWhiteSpace(filterObject.UUID))
+                return BadRequest("EventLog filters are empty.");
+
+            //if (filterObject.ToDate == null && filterObject.FromDate == null && !string.IsNullOrWhiteSpace(filterObject.UUID))
+            //    return BadRequest("EventLog date filters are empty.");
+
+            var response = await ConfigService.GetEventLogs(filterObject, authToken);
+
             return StatusCode(response.StatusCode, response.Value);
         }
     }

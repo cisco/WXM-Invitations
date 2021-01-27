@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Invitations.Net
 {
@@ -110,7 +111,7 @@ namespace XM.ID.Invitations.Net
                             accountConfiguration = await viaMongoDB.GetAccountConfiguration();
                         else
                             accountConfiguration = Newtonsoft.Json.JsonConvert.DeserializeObject<AccountConfiguration>(accountConfigurationCache);
-                        string username = accountConfiguration.WXMAdminUser;
+                        string username = accountConfiguration.WXMUser;
                         string apikey = accountConfiguration.WXMAPIKey;
                         string responseBody = await hTTPWrapper.GetLoginToken(username, apikey);
                         if (!string.IsNullOrEmpty(responseBody))
@@ -174,8 +175,8 @@ namespace XM.ID.Invitations.Net
 
                                     var invitationEvent = new InvitationLogEvent()
                                     {
-                                        Action = InvitationLogEvent.EventAction.TokenCreated,
-                                        Channel = InvitationLogEvent.EventChannel.DispatchAPI,
+                                        Action = EventAction.TokenCreated,
+                                        Channel = EventChannel.DispatchAPI,
                                         TimeStamp = utcNow,
                                         TargetId = perinvite.UUID
 

@@ -3,6 +3,7 @@ using System;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Dispatcher.Net.DispatchVendors
 {

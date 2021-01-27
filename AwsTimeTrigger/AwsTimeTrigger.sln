@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AwsTimeTrigger", "AwsTimeTr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XM.ID.Dispatcher.Net", "..\XM.ID.Dispatcher.Net\XM.ID.Dispatcher.Net\XM.ID.Dispatcher.Net.csproj", "{B27D1110-68C1-48CD-9932-1B227CEA7EB4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XM.ID.Net", "..\XM.ID.Net\XM.ID.Net\XM.ID.Net.csproj", "{879A73E1-3990-411F-8ABC-1CC3EC21487E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{B27D1110-68C1-48CD-9932-1B227CEA7EB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B27D1110-68C1-48CD-9932-1B227CEA7EB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B27D1110-68C1-48CD-9932-1B227CEA7EB4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{879A73E1-3990-411F-8ABC-1CC3EC21487E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{879A73E1-3990-411F-8ABC-1CC3EC21487E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{879A73E1-3990-411F-8ABC-1CC3EC21487E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{879A73E1-3990-411F-8ABC-1CC3EC21487E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

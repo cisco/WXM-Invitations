@@ -3,6 +3,7 @@ using MailKit.Security;
 using MimeKit;
 using System;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Dispatcher.Net.DispatchVendors
 {
@@ -43,6 +44,10 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                 messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
                 messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.Email,
                     messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
+            }
+            finally
+            {
+                await Task.CompletedTask;
             }
         }
 

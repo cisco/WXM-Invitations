@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using XM.ID.Dispatcher.Net.DispatchVendors;
+using XM.ID.Net;
 
 namespace XM.ID.Dispatcher.Net
 {

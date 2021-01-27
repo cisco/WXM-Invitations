@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using XM.ID.Dispatcher.Net.DispatchVendors;
+using XM.ID.Net;
 
 namespace XM.ID.Dispatcher.Net
 {
@@ -96,13 +97,13 @@ namespace XM.ID.Dispatcher.Net
         public async Task ProcessMultipleMessage(bool isLate)
         {
             List<LogEvent> logEvents = new List<LogEvent>();
-            logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerStart));
             if (isLate)
                 logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerRunningLate));
             List<MessagePayload> messagePayloads = new List<MessagePayload>();
             List<DB_MessagePayload> dB_MessagePayloads = await Utils.ReadBulkMessagePayloads();
             if (dB_MessagePayloads.Count > 0)
             {
+                logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerStart));
                 try
                 {
                     await Utils.UpdateBulkMessagePayloads(dB_MessagePayloads);
@@ -111,7 +112,7 @@ namespace XM.ID.Dispatcher.Net
                     {
                         MessagePayload messagePayload = JsonConvert.DeserializeObject<MessagePayload>(dB_MessagePayload.MessagePayload);
                         messagePayloads.Add(messagePayload);
-                        messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.ReadFromDB));
+                        messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.ReadFromDB(Resources.GetInstance().BulkVendorName)));
                         if (!ListOfMessagePayloadsByTemplateId.ContainsKey(messagePayload.QueueData.TemplateId))
                             ListOfMessagePayloadsByTemplateId.Add(messagePayload.QueueData.TemplateId, new List<MessagePayload>());
                         ListOfMessagePayloadsByTemplateId[messagePayload.QueueData.TemplateId].Add(messagePayload);
@@ -144,8 +145,8 @@ namespace XM.ID.Dispatcher.Net
                     await Utils.DeleteBulkMessagePayloads(dB_MessagePayloads);
                     await Utils.FlushLogs(messagePayloads);
                 }
+                logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerEnd(dB_MessagePayloads.Count)));
             }
-            logEvents.Add(Utils.CreateLogEvent(null, IRDLM.TimeTriggerEnd(dB_MessagePayloads.Count)));
             await Utils.FlushLogs(logEvents);
         }
     }

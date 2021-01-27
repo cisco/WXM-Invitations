@@ -2,8 +2,10 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Invitations.Net
 {
@@ -134,7 +136,8 @@ namespace XM.ID.Invitations.Net
                                         PreFill = batchreq.PreFill,
                                         DeliveryPlanID = reqDispatch.DeliveryPlanId,
                                         Channels = new List<string>(),
-                                        QuestionnaireName = reqDispatch.QuestionnaireName
+                                        QuestionnaireName = reqDispatch.QuestionnaireName,
+                                        PrimaryChannel = null
                                     });
 
                                     EventLogList.AddEventByLevel(5, $"{batchreq.PreFill?.Count ?? 0} records accepted for further validation", BatchId,batchreq.DispatchID, reqDispatch.DeliveryPlanId);
@@ -178,6 +181,32 @@ namespace XM.ID.Invitations.Net
             }
         }
 
+        private bool CheckAccountPrefills(ref BatchResponse batchResponse, ref List<Question> activeQuestions)
+        {
+            try
+            {
+                var dpPrefill = activeQuestions.Find(x => x.QuestionTags.Contains("DeliveryPlanId", StringComparer.OrdinalIgnoreCase));
+                var batchprefill = activeQuestions.Find(x => x.QuestionTags.Contains("BatchId", StringComparer.OrdinalIgnoreCase));
+                var documentIdQuestion = activeQuestions.Find(x => x.QuestionTags.Contains("DocumentId", StringComparer.OrdinalIgnoreCase));
+                if (dpPrefill == null || batchprefill == null || documentIdQuestion == null)
+                {
+                    foreach (var dispatch in CorrectDispatchData)
+                    {
+                        EventLogList.AddEventByLevel(2, SharedSettings.AccountPrefills, BatchId, dispatch.Key);
+                        //Removing from CorrectDispatchData with 400 for dispatch
+                        RemoveInvalidDispatchData(ref batchResponse, dispatch.Key, SharedSettings.AccountPrefills);
+                    }
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                EventLogList.AddExceptionEvent(ex, BatchId, null, null, null, SharedSettings.CheckAccountLevelPrefills);
+                return false;
+            }
+        }
+
         private void GetChannelFromDP(ref BatchResponse batchResponse, List<DeliveryPlan> deliveryPlans)
         {
             try
@@ -190,9 +219,17 @@ namespace XM.ID.Invitations.Net
                         foreach (var schedule in deliveryPlan.schedule)
                         {
                             if (schedule.onChannel.StartsWith("email://"))
+                            {
                                 dispatch.Value.Channels.Add("Email");
+                                if (schedule.additionalURLParameter.Contains("n=0"))
+                                    dispatch.Value.PrimaryChannel = "Email";
+                            }
                             else if (schedule.onChannel.StartsWith("sms://"))
+                            {
                                 dispatch.Value.Channels.Add("SMS");
+                                if (schedule.additionalURLParameter.Contains("n=0"))
+                                    dispatch.Value.PrimaryChannel = "SMS";
+                            }
                         }
 
                         if(dispatch.Value.Channels==null || dispatch.Value.Channels?.Count<1)
@@ -299,12 +336,21 @@ namespace XM.ID.Invitations.Net
                 var deliveryPlans = JsonConvert.DeserializeObject<List<DeliveryPlan>>(DeliveryPlanData);
                 var activeQuestions = JsonConvert.DeserializeObject<List<Question>>(ActiveQuestions);
 
+                // Check Account level prefills
+                var prefillsPresent = CheckAccountPrefills(ref batchResponse, ref activeQuestions);
+                if (!prefillsPresent)
+                    return;
+
                 //getting channels from delivery plan
                 GetChannelFromDP(ref batchResponse, deliveryPlans);
 
                 DateTime utcNow = DateTime.UtcNow;
                 List<LogEvent> batchLogEvents = new List<LogEvent>();
 
+                //Channel Check
+                accountConfiguration.ExtendedProperties.TryGetValue("CheckCleanData", out string toCheckData);
+                if (string.IsNullOrEmpty(toCheckData))
+                    toCheckData = "true";
                 foreach (var dispatch in CorrectDispatchData)
                 {
                     //If one dispatch fails the entire operation shouldn't fail.
@@ -358,7 +404,7 @@ namespace XM.ID.Invitations.Net
 
                             bool failureFlag = false;
                             bool uuidrecord = false;
-
+                            
                             foreach (var record in prefill)
                             {
                                 var question = activeQuestions.Find(x => x.Id == record.QuestionId && (x.StaffFill || x.ApiFill));
@@ -372,8 +418,7 @@ namespace XM.ID.Invitations.Net
                                     QuestionId = question.Id
                                 };
 
-                                //Channel Check
-                                if (question.QuestionTags != null && question.QuestionTags.Contains("Email"))
+                                if (question.QuestionTags != null && question.QuestionTags.Contains("Email", StringComparer.OrdinalIgnoreCase))
                                 {
                                     // Email question
                                     if (dispatch.Value.Channels.Contains("Email"))
@@ -382,11 +427,13 @@ namespace XM.ID.Invitations.Net
                                         bool emailStatus = Util.IsValidEmail(record.Input);
                                         if (!emailStatus)
                                         {
-                                            failureFlag = true;
+                                            if (dispatch.Value.PrimaryChannel == "Email" || 
+                                                (dispatch.Value.PrimaryChannel != "Email" && toCheckData == "true"))
+                                                failureFlag = true;
                                         }
                                     }
                                 }
-                                else if (question.QuestionTags != null && question.QuestionTags.Contains("Mobile"))
+                                else if (question.QuestionTags != null && question.QuestionTags.Contains("Mobile", StringComparer.OrdinalIgnoreCase))
                                 {
                                     // SMS question
                                     if (dispatch.Value.Channels.Contains("SMS"))
@@ -395,7 +442,9 @@ namespace XM.ID.Invitations.Net
                                         bool numberStatus = Util.IsValidMobile(record.Input);
                                         if (!numberStatus)
                                         {
-                                            failureFlag = true;
+                                            if (dispatch.Value.PrimaryChannel == "SMS" ||
+                                                (dispatch.Value.PrimaryChannel != "SMS" && toCheckData == "true"))
+                                                failureFlag = true;
                                         }
                                     }
                                 }
@@ -453,13 +502,13 @@ namespace XM.ID.Invitations.Net
                                     }
                                 }
                                 responses.Add(response);
-
+                                
                             }
 
                             var invitationLogEvent = new InvitationLogEvent()
                             {
-                                Action = InvitationLogEvent.EventAction.Requested,
-                                Channel = InvitationLogEvent.EventChannel.DispatchAPI,
+                                Action = EventAction.Requested,
+                                Channel = EventChannel.DispatchAPI,
                                 TimeStamp = utcNow
                             };
 
@@ -467,7 +516,7 @@ namespace XM.ID.Invitations.Net
                             if (failureFlag)
                             {
                                 prefillFailCount++;
-                                invitationLogEvent.Action = InvitationLogEvent.EventAction.Rejected;
+                                invitationLogEvent.Action = EventAction.Rejected;
                                 invitationLogEvent.LogMessage = new LogMessage() { Message = SharedSettings.FailDueToEmailOrMobile };
                                 logEvent.Events = new List<InvitationLogEvent>() { invitationLogEvent };
                                 batchLogEvents.Add(logEvent);
@@ -478,7 +527,7 @@ namespace XM.ID.Invitations.Net
                             if (recordChannel == 0 || !uuidrecord)
                             {
                                 prefillFailCount++;
-                                invitationLogEvent.Action = InvitationLogEvent.EventAction.Rejected;
+                                invitationLogEvent.Action = EventAction.Rejected;
                                 invitationLogEvent.LogMessage = new LogMessage() { Message = SharedSettings.FailDueToUUIDOrChannel };
                                 logEvent.Events = new List<InvitationLogEvent>() { invitationLogEvent };
                                 batchLogEvents.Add(logEvent);
@@ -492,7 +541,7 @@ namespace XM.ID.Invitations.Net
                                 if (dupRecord != null)
                                 {
                                     prefillFailCount++;
-                                    invitationLogEvent.Action = InvitationLogEvent.EventAction.Throttled;
+                                    invitationLogEvent.Action = EventAction.Throttled;
                                     invitationLogEvent.LogMessage = new LogMessage() { Message = $"{ SharedSettings.DuplicateRecord} : {logEvent.Target}"};
                                     logEvent.Events = new List<InvitationLogEvent>() { invitationLogEvent };
                                     batchLogEvents.Add(logEvent);
@@ -511,14 +560,14 @@ namespace XM.ID.Invitations.Net
                             if (unsubscribestatus)
                             {
                                 prefillFailCount++;
-                                invitationLogEvent.Action = InvitationLogEvent.EventAction.Supressed;
+                                invitationLogEvent.Action = EventAction.Supressed;
                                 logEvent.Events = new List<InvitationLogEvent>() { invitationLogEvent };
                                 batchLogEvents.Add(logEvent);
                                 continue;
                             }
 
                             // Add DPID prefill for each record
-                            var dpPrefill = activeQuestions.Find(x => x.QuestionTags.Contains("DeliveryPlanId"));
+                            var dpPrefill = activeQuestions.Find(x => x.QuestionTags.Contains("DeliveryPlanId", StringComparer.OrdinalIgnoreCase));
                             if (dpPrefill != null)
                             {
                                 AddToResponsesAndEventLogs(ref responses, ref logEvent, dpPrefill.Id, 
@@ -526,7 +575,7 @@ namespace XM.ID.Invitations.Net
                             }
 
                             // Add batchID prefill for each record
-                            batchprefill = activeQuestions.Find(x => x.QuestionTags.Contains("BatchId"));
+                            batchprefill = activeQuestions.Find(x => x.QuestionTags.Contains("BatchId", StringComparer.OrdinalIgnoreCase));
                             if (batchprefill != null)
                             {
                                 AddToResponsesAndEventLogs(ref responses, ref logEvent, batchprefill.Id, batchID);
@@ -557,11 +606,25 @@ namespace XM.ID.Invitations.Net
                                 }
                             }
 
+                            // Single insert, get Id and add document Id prefill in record.
+                            var documentIdQuestion = activeQuestions.Find(x => x.QuestionTags.Contains("DocumentId", StringComparer.OrdinalIgnoreCase));
 
                             logEvent.Events = new List<InvitationLogEvent>() { invitationLogEvent };
+                            // Add documentId prefill in logEvent prefill
+                            logEvent.Prefills.Add(new Prefill
+                            {
+                                QuestionId = documentIdQuestion?.Id,
+                                Input = logEvent.Id,
+                                Input_Hash = logEvent.Id
+                            });
                             batchLogEvents.Add(logEvent);
 
                             //Add records to form Bulk token Request.
+                            responses.Add(new Response
+                            {
+                                QuestionId = documentIdQuestion?.Id,
+                                TextInput = logEvent.Id
+                            });
                             prefillResponses.Add(responses);
                         }
 

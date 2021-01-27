@@ -12,4 +12,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\XM.ID.Dispatcher.Net\XM.ID.Dispatcher.Net\XM.ID.Dispatcher.Net.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="VERSION.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

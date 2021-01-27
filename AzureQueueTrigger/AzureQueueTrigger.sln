@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XM.ID.Dispatcher.Net", "..\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AzureQueueTrigger", "AzureQueueTrigger\AzureQueueTrigger.csproj", "{5BDD7114-CA0D-4CFA-BB33-AF863AF22969}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XM.ID.Net", "..\XM.ID.Net\XM.ID.Net\XM.ID.Net.csproj", "{F8D3A980-BA19-449D-B7DF-69B1188E9B6B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{5BDD7114-CA0D-4CFA-BB33-AF863AF22969}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5BDD7114-CA0D-4CFA-BB33-AF863AF22969}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5BDD7114-CA0D-4CFA-BB33-AF863AF22969}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8D3A980-BA19-449D-B7DF-69B1188E9B6B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8D3A980-BA19-449D-B7DF-69B1188E9B6B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8D3A980-BA19-449D-B7DF-69B1188E9B6B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8D3A980-BA19-449D-B7DF-69B1188E9B6B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,4 +1,3 @@
-using XM.ID.Invitations.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -6,7 +5,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
-using System.IO;
+using XM.ID.Invitations.Net;
+using XM.ID.Net;
 
 namespace Invitations
 {
@@ -40,7 +40,7 @@ namespace Invitations
 
             // MongoDB Initialization
             services.AddSingleton(new ViaMongoDB(Configuration));
-            services.AddSingleton<WXMService>();
+            services.AddSingleton(new WXMService(Configuration["WXM_BASE_URL"]));
             services.AddSingleton<ConfigService>();
             services.AddSingleton<AuthTokenValidation>();
             services.AddSingleton<PayloadValidation>();

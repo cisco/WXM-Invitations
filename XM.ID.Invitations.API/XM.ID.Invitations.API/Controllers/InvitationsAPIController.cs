@@ -6,7 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
+using XM.ID.Net;
+using System.IO;
+using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace Invitations.Controllers
 {
@@ -33,7 +36,7 @@ namespace Invitations.Controllers
         [HttpPost]
         [Route("dispatchRequest")]
         public async Task<IActionResult> DispatchRequest([FromHeader(Name = "Authorization")] string authToken,
-            List<DispatchRequest> request)
+            List<DispatchRequest> request, [FromHeader(Name = "BatchID")] string batchId = null)
         {
             try
             {
@@ -65,7 +68,8 @@ namespace Invitations.Controllers
                 }
 
                 //Generate batch ID for the request
-                string batchId = Guid.NewGuid().ToString();
+                if (string.IsNullOrEmpty(batchId))
+                    batchId = Guid.NewGuid().ToString();
 
                 // Check for sampling
                 if (accConfiguration.ExtendedProperties.TryGetValue("Sampler", out string samplername))
@@ -162,7 +166,7 @@ namespace Invitations.Controllers
                 if (string.IsNullOrWhiteSpace(filterObject.BatchId) &&
                     string.IsNullOrWhiteSpace(filterObject.DispatchId) &&
                     string.IsNullOrWhiteSpace(filterObject.Token) &&
-                    string.IsNullOrWhiteSpace(filterObject.Target) &&
+                    string.IsNullOrWhiteSpace(filterObject.UUID) &&
                     string.IsNullOrWhiteSpace(filterObject.Created))
                     return BadRequest("EventLog filters are empty.");
 
@@ -211,6 +215,147 @@ namespace Invitations.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine("exception", ex.Message);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost]
+        [Route("MetricsReport")]
+        public async Task<IActionResult> GetDpReport([FromHeader(Name = "Authorization")] string authToken,
+            ACMInputFilter InputFilter)
+        {
+            //{"afterdate":"","beforedate":""} request format
+            try
+            {
+                //Validate Auth token(Basic or Bearer) and reject if fail.
+                if (!await AuthTokenValidation.ValidateBearerToken(authToken))
+                {
+                    return Unauthorized(SharedSettings.AuthorizationDenied);
+                }
+
+                FilterBy filter = new FilterBy();
+
+                try
+                {
+                    //request coming in is considered to be in user time so you have to get to UTC from here
+                    filter.afterdate = DateTime.ParseExact(InputFilter.afterdate, "dd/MM/yyyy", CultureInfo.InvariantCulture);
+                    filter.beforedate = DateTime.ParseExact(InputFilter.beforedate, "dd/MM/yyyy", CultureInfo.InvariantCulture).AddDays(1).AddSeconds(-1);
+                }
+                catch(Exception e)
+                {
+                    return BadRequest("Entered date format is not correct. Please enter the date in dd/MM/yyyy format only.");
+                }
+
+                int TimeZoneOffset = 0;
+
+                try
+                {
+                    string offset = InvitationsMemoryCache.GetInstance().GetFromMemoryCache(authToken.Split(' ')[1]);
+                    
+                    //conversion to UTC
+                    if (!string.IsNullOrEmpty(offset))
+                    {
+                        TimeZoneOffset = Convert.ToInt32(offset);
+
+                        //do opposite of offset from UTC to get to UTC
+                        if (TimeZoneOffset < 0)
+                        {
+                            filter.afterdate = filter.afterdate.AddMinutes(Math.Abs(TimeZoneOffset));
+                            filter.beforedate = filter.beforedate.AddMinutes(Math.Abs(TimeZoneOffset));
+                        }
+                        else
+                        {
+                            filter.afterdate = filter.afterdate.AddMinutes(-Math.Abs(TimeZoneOffset));
+                            filter.beforedate = filter.beforedate.AddMinutes(-Math.Abs(TimeZoneOffset));
+                        }
+                    }
+                    else
+                    {
+                        return BadRequest("Unable to convert the entered date range to UTC. Please Re-Login and contact administrator if issue persists");
+                    }
+                }
+                catch (Exception e)
+                {
+                    return BadRequest("Unable to convert the entered date range to UTC. Please Re-Login and contact administrator if issue persists");
+                }
+
+                if (filter.afterdate.Year == 0001 || filter.beforedate.Year == 0001)
+                    return BadRequest("There are no dates provided in the request. Please enter valid dates and try again.");
+
+                if ((filter.beforedate - filter.afterdate).Days > 90)
+                    return BadRequest("Entered date range is too long. Reports can be downloaded for 90 days of date range only.");
+
+                AccountConfiguration a = await ViaMongoDB.GetAccountConfiguration();
+
+                //check to see if emails are configured
+                string Emails = null;
+                if (!a.ExtendedProperties?.Keys?.Contains("ReportRecipients") == true)
+                {
+                    return BadRequest("There is some configuration mismatch encountered during storing the Email IDs. Email IDs are supposed to be passed under \"ReportRecipients\" key only. Please retry again and contact your administrator if error still occurs.");
+                }
+                else if (string.IsNullOrEmpty(a.ExtendedProperties["ReportRecipients"]))
+                {
+                    return BadRequest("There are no EmailIDs provided which are mandatory before Reports Generation request.");
+                }
+                else
+                {
+                    Emails = a.ExtendedProperties["ReportRecipients"];
+                }
+
+                bool IsValidEmail(string email)
+                {
+                    try
+                    {
+                        var mail = new System.Net.Mail.MailAddress(email);
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                }
+
+                foreach (string email in Emails.Split(";"))
+                {
+                    string e = Regex.Replace(email, @"\s+", "");
+                    if (!IsValidEmail(e))
+                        BadRequest("The format of one or more Email IDs configured is incorrect. Please make sure all the Email IDs are sent in valid format only.");
+                }
+
+                long count = await ViaMongoDB.GetMergedDataCount(filter);
+
+                if (count == 0)
+                    return BadRequest("No data available for selected date range. Please try another date range.");
+
+                OnDemandReportModel OnDemand = await ViaMongoDB.GetOnDemandModel();
+
+                if ((OnDemand != null && OnDemand.IsLocked == false) || OnDemand == null)
+                {
+                    if (OnDemand == null)
+                        OnDemand = new OnDemandReportModel();
+
+                    OnDemand.TimeOffSet = TimeZoneOffset;
+
+                    var response = await ViaMongoDB.LockOnDemand(filter, OnDemand);
+
+                    if (response == true)
+                        return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status200OK, "Your report has been sent for processing");
+                    else
+                        return BadRequest("An unknown error occured while generating the report . Please make sure Email IDs and Date ranges are provided in valid format only. Please retry again and contact your administrator if error still occurs.");
+                }
+                else if (OnDemand != null && OnDemand.IsLocked == true)
+                {
+                    return BadRequest("A report is being generated right now. It will be emailed to the listed recipients once it's generated. You can request another report only after this request is completed.");
+                }
+                else
+                {
+                    return BadRequest("A report is being generated right now and some setting couldn't be retrieved at this time. Please try after some time. ");
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("exception: ", ex.Message);
                 return BadRequest(ex.Message);
             }
         }

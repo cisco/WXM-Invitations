@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Dispatcher.Net
 {
@@ -98,8 +99,12 @@ namespace XM.ID.Dispatcher.Net
 
         internal async Task ConfigureUserData()
         {
-            Invitation = await Resources.GetInstance().LogEventCollection.Find(x => x.TokenId == QueueData.TokenId &&
+            // Update this to get record by PartnerDBDocumentId.
+            if (string.IsNullOrEmpty(QueueData.PartnerDBDocumentId))
+                Invitation = await Resources.GetInstance().LogEventCollection.Find(x => x.TokenId == QueueData.TokenId &&
             x.BatchId == QueueData.BatchId && x.DispatchId == QueueData.DispatchId).FirstOrDefaultAsync();
+            else
+                Invitation = await Resources.GetInstance().LogEventCollection.Find(x => x.Id == QueueData.PartnerDBDocumentId).FirstOrDefaultAsync();
             if (Invitation == default)
             {
                 IsUserDataLogEventConfigured = false;

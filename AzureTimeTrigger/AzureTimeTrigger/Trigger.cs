@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using XM.ID.Dispatcher.Net;
 using XM.ID.Dispatcher.Net.DispatchVendors;
+using XM.ID.Net;
 
 namespace AzureTimeTrigger
 {

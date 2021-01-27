@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace XM.ID.Invitations.Net
 {
@@ -11,6 +12,8 @@ namespace XM.ID.Invitations.Net
         private readonly object questionsLock = new object();
         private readonly object settingsLock = new object();
         private readonly object questionniareLock = new object();
+        private readonly object userprofileLock = new object();
+        private readonly object templateLock = new object();
 
         private readonly MemoryCache Cache = new MemoryCache(new MemoryCacheOptions
         {
@@ -111,6 +114,31 @@ namespace XM.ID.Invitations.Net
             }
         }
 
+        public string GetDispatchDataForConfigFromMemoryCache(string authToken, WXMService wXMService)
+        {
+            string dispatches = string.Empty;
+            if (Cache.TryGetValue("DispatchData", out string value))
+                return value;
+            else
+            {
+                lock (dispatchLock)
+                {
+                    if (Cache.TryGetValue("DispatchData", out string newValue))
+                        return newValue;
+
+                    var dispatchdata = wXMService.GetDispatches(authToken).GetAwaiter().GetResult();
+                    dispatches = Newtonsoft.Json.JsonConvert.SerializeObject(dispatchdata);
+                    if (string.IsNullOrEmpty(dispatches))
+                    {
+                        return null;
+                    }
+
+                    SetToMemoryCache("DispatchData", dispatches);
+                }
+                return dispatches;
+            }
+        }
+
         public string GetActiveQuestionsFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
         {
             if (Cache.TryGetValue("ActiveQuestions", out string value))
@@ -181,6 +209,54 @@ namespace XM.ID.Invitations.Net
                     SetToMemoryCache("SurveyQuestionnaires", SurveyQuestionnaires);
                 }
                 return SurveyQuestionnaires;
+            }
+        }
+
+        public string GetUserProfileFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
+        {
+            if (Cache.TryGetValue("UserProfile", out string value))
+                return value;
+            else
+            {
+                string UserProfile;
+                lock (userprofileLock)
+                {
+                    if (Cache.TryGetValue("UserProfile", out string newValue))
+                        return newValue;
+
+                    UserProfile = hTTPWrapper.GetUserProfile(authToken).GetAwaiter().GetResult();
+                    if (string.IsNullOrEmpty(UserProfile))
+                    {
+                        return null;
+                    }
+
+                    SetToMemoryCache("UserProfile", UserProfile);
+                }
+                return UserProfile;
+            }
+        }
+
+        public string GetContentTemplatesFromMemoryCache(string authToken, HTTPWrapper hTTPWrapper)
+        {
+            if (Cache.TryGetValue("ContentTemplates", out string value))
+                return value;
+            else
+            {
+                string ContentTemplates;
+                lock (templateLock)
+                {
+                    if (Cache.TryGetValue("ContentTemplates", out string newValue))
+                        return newValue;
+
+                    ContentTemplates = hTTPWrapper.GetContentTemplates(authToken).GetAwaiter().GetResult();
+                    if (string.IsNullOrEmpty(ContentTemplates))
+                    {
+                        return null;
+                    }
+
+                    SetToMemoryCache("ContentTemplates", ContentTemplates);
+                }
+                return ContentTemplates;
             }
         }
 

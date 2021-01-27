@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using XM.ID.Dispatcher.Net.DispatchVendors;
+using XM.ID.Net;
 
 namespace XM.ID.Dispatcher.Net
 {
@@ -66,7 +67,9 @@ namespace XM.ID.Dispatcher.Net
             {
                 { "customsmtp", () => new CustomSMTP() },
                 { "messagebird", () => new MessageBird() },
-                { "sparkpost", () => new SparkPost() }
+                { "sparkpost", () => new SparkPost() },
+                { "customsms", () => new CustomSMS() },
+                { "pinnacle", () => new Pinnacle() }
             };
             if (default != additionalDispatchCreatorStrategies)
             {
@@ -83,7 +86,7 @@ namespace XM.ID.Dispatcher.Net
 
         }
 
-        public static Resources CreateSingleton(string mongoDbConnectionString,
+        private static Resources CreateSingleton(string mongoDbConnectionString,
             string databaseName,
             int logLevel = 5,
             Dictionary<string, Func<IDispatchVendor>> additionalDispatchCreatorStrategies = default,
@@ -133,7 +136,8 @@ namespace XM.ID.Dispatcher.Net
 
         public static Resources GetInstance()
         {
-            return _instance;
+            //TO-DO: Handle the null scenario without throwing exception
+            return _instance ?? throw new InvalidOperationException("Resources hasn't been initialized");
         }
     }
 }

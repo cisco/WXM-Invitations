@@ -3,13 +3,14 @@
     flex-wrap: nowrap;
     margin: 30px;
     flex-wrap:wrap;
+    overflow-x: hidden;
 }
 span, p{
     font-size:14px
 }
 .heading{
     margin-right: auto;
-    width: 50%;
+    width: 100%;
 };
 .upload-btn{
     width: 50%;
@@ -64,12 +65,12 @@ span#setMultiLanguage {
     margin-left: 30px;
 }
 
-.smsEditedValue span, .emailEditedValue span, .MessageBird span, .SparkPostValueEdited span, #setSuperAdminNotificationData {
+.smsEditedValue span, .emailEditedValue span, .MessageBird span, .SparkPostValueEdited span, #setSuperAdminNotificationData, .mandrillPostValueEdited span, .pinnacle span {
     color: #ccc;
     width: 50%;
     display: block;
 }
-.smsEditedValue, .MessageBird, .emailEditedValue, .SparkPostValueEdited{
+.smsEditedValue, .MessageBird, .emailEditedValue, .SparkPostValueEdited, .mandrillPostValueEdited , .pinnacle{
     display:none
 }
 .download-btn button {
@@ -214,7 +215,6 @@ span#setMultiLanguage {
     font-size: 12px;
     color: #ff0000;
     position: absolute;
-    bottom: -7px;
     left: 0;
     
 }
@@ -247,11 +247,16 @@ span#myBtn {
     font-size: 11px;
     color:#ff0000;
     display: block;
+    position: relative;
 }
 .dispatch-error-msg{
     font-size: 11px;
     color:#ff0000;
     display: none;  
+}
+.log-error-msg{
+    font-size: 14px;
+    color:#ff0000;
 }
 .form-properties {
     height: 420px;
@@ -378,4 +383,258 @@ button[disabled]{
 
 .super-admin-notification {
     margin: 30px 0 10px 0;
+}
+
+/* tabs ui code*/
+/* Tab Format */
+/* log for ACM UI */
+ul#tabs {
+    padding: 0;
+    margin-top: 38px;
+    width: 100%;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 0;
+    display: inherit;
+}
+#tabs li {
+    display: inline;
+    min-height: 48px;
+    min-width: 190px;
+    line-height: 48px;
+    background-color: #9E9E9E;
+    text-align: center;
+    border-right: 1px solid #ddd;
+}
+#tabs li a {
+    text-decoration: none;
+    color: #fff;
+}
+
+.active {
+    display: block;
+    background: #00bceb !important;
+}
+#content02 .heading, #content03 .heading{
+    margin-top: 30px;
+}
+#content02, #content03{
+    display: none;
+}
+form#logsForm {
+    padding-bottom: 10px;
+}
+.table-area {
+    border-top: 1px solid #c1c1c1;
+}
+
+.check-box-div {
+    margin-top: 20px;
+    display: inline-block;
+}
+
+.check-box-div > div {
+    display: block;
+    float: left;
+    margin-right: 30px;
+}
+textarea:focus, input:focus{
+    outline: none;
+}
+.inline-group, .datepickerGroup{
+    display: inline-block;
+    position: relative;
+}
+.inline-group div, .datepickerGroup div {
+    float: left;
+    width: 200px;
+}
+
+.inline-group div input, .datepickerGroup div input {
+height: 21px;
+padding: 6px 10px;
+border: 1px solid #9a9a9a;
+border-radius: 3px;
+width: 160px;
+}
+
+.from-calendar-icon {
+    position: absolute;
+    top: 36px;
+    right: 25px;
+    cursor: pointer;
+}
+.to-calendar-icon {
+    position: absolute;
+    top: 36px;
+    right: 25px;
+    cursor: pointer;
+}
+
+#content02 .download-btn button, #content03 .download-btn button  {
+    margin-top: 0;
+}
+
+.download-btn span {
+    color: #00bceb;
+    cursor: pointer;
+    margin: 30px;
+    line-height: 47px;
+}
+
+#tabs li
+{
+    cursor: pointer;
+}
+
+.uuidIdDiv{
+    display: none;
+}
+
+#content02 .download-btn {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+#logInfo{
+float: left;
+}
+#excelDownload{
+float:right;
+color: #00bceb;
+margin-left: auto;
+}
+.excelDownload-div{
+    margin-top: 30px;
+    margin-bottom: 30px;
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+#logTable {
+    border-collapse: collapse;
+    display: block;
+  }
+
+  #logTable  td,
+  #logTable  th {
+    min-width: 200px;
+    height: 25px;
+    font-size: 11px;
+    border: solid 1px #555;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    text-align: center;
+}
+#logTable tbody {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    width: auto;
+  }
+#logTable  thead {
+    background-color: #EFEFEF;
+  }
+  #logTable  thead,
+  #logTable  tbody {
+  display: block;
+}
+.logTable {
+    display: flex;    overflow-x: auto;
+}
+.table-area{
+    display: none;
+}
+.excelDownload, .inline-group, #reportForm, #block-report1{
+    display: none;
+}
+.log-spinner{
+    display: block; 
+}
+#content
+{
+    width: 100%;
+    display: block;
+}
+#log-spinner {
+    text-align: center;
+    display: none;
+}
+#logsForm .form-error-msg{
+    position: absolute;
+}
+.fa-sign-out-alt{
+    position: relative;
+    top:1px;
+}
+
+/* report tab CSS style */
+
+#content03 #button-table {
+    margin-top: 20px;
+}
+#block-report{
+    text-align: center;
+    display: none;
+}
+#block-report1{
+    text-align: left;
+}
+.report-error {
+    color: #EF5451;
+    margin-top: 30px;
+}
+
+#reportPopup .modal-content {
+    width: 35%;
+    top: 20%;
+    position: relative;
+}
+sup{
+    color: red;
+    font-size: 12px;
+    top: 4px;
+    position: relative;
+}
+.pull-left{
+    float: left;
+}
+.checkbox{
+    margin:30px 0;
+}
+
+.copySmtpsettings {
+    color: #00bceb;
+    cursor: pointer;
+    display: inline-block;
+    bottom: 11px;
+    margin-top: 20px;
+    position: relative;
+    margin-bottom: 0;
+}
+.show-smtp-settings, .get-smtp-settings {
+    color: #00bceb;
+    cursor: pointer;
+    display: inline-block;
+    bottom: 11px;
+    margin-top: 20px;
+    position: relative;
+    margin-bottom: 0;
+}
+.required:after {
+    content:" *";
+    color: #ff0000;
+  }
+  p.warning {
+    color: #ff0000;
+}
+.smtpSettings{
+    margin-bottom: 30px;
+}
+.testEmailGroup .form-error-msg {
+position:absolute;
+top: 62px;
 }

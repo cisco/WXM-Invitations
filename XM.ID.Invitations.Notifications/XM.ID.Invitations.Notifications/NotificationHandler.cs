@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Configuration;
 using MongoDB.Driver;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mail;
 using System.Threading;
 using System.Threading.Tasks;
+using XM.ID.Net;
 
 namespace InvitationNotification
 {
@@ -70,20 +70,21 @@ namespace InvitationNotification
                     delay = 5;
                 log.logMessage += $"Frequency : {delay}\n";
 
-
+                //get details from account configuration 
+                var accountConfig = await viaDb.GetAccountdetails();
                 #region Check CustomSMTP
 
-                bool.TryParse(configuration["CustomeMailServer:EnableSSL"], out bool enablessl);
-                int.TryParse(configuration["CustomeMailServer:FromAddress"], out int port);
+                bool.TryParse(accountConfig.CustomSMTPSetting.EnableSsl, out bool enablessl);
+                int.TryParse(accountConfig.CustomSMTPSetting.Port, out int port);
                 smtpServer = new SMTPServer()
                 {
                     EnableSSL = enablessl,
-                    FromAddress = configuration["CustomeMailServer:FromAddress"],
-                    FromName = configuration["CustomeMailServer:FromName"],
-                    Login = configuration["CustomeMailServer:Login"],
-                    Password = configuration["CustomeMailServer:Password"],
+                    FromAddress = accountConfig.CustomSMTPSetting.SenderEmailAddress,
+                    FromName = accountConfig.CustomSMTPSetting.SenderName,
+                    Login = accountConfig.CustomSMTPSetting.Username,
+                    Password = accountConfig.CustomSMTPSetting.Password,
                     Port = port,
-                    Server = configuration["CustomeMailServer:Server"],
+                    Server = accountConfig.CustomSMTPSetting.Host,
 
                 };
                 #endregion
@@ -179,7 +180,7 @@ namespace InvitationNotification
                 #region EOD
                 bool isEOD = false;
                 //Make 
-                if (utcNow.Hour == 0 && utcNow.Minute <= minutes && lastEdoSent.Hour != utcNow.Hour)
+                if (utcNow.Hour == 0 && lastEdoSent.Day != utcNow.Day)
                 {
                     isEOD = true;
                     lastEdoSent = DateTime.UtcNow;
@@ -285,7 +286,7 @@ namespace InvitationNotification
 
                         }
                         else
-                            log.logMessage = "No EOD log found\n";
+                            log.logMessage += "No EOD log found\n";
                     }
                     #endregion
                 }

@@ -5,7 +5,7 @@ namespace XM.ID.Invitations.Net
     public static class SharedSettings
     {
         public const string AuthorizationDenied = "Authentication Bearer token in the incoming request header is invalid. Please ensure you are using correct user credentials or a valid Authentication Bearer token.";
-        public const string  AuthDeniedResponse = "Authorization has been denied for this request.";      
+        public const string AuthDeniedResponse = "Authorization has been denied for this request.";      
         public const string NoActiveQuestionsFound = "Active Questions not found. Please ensure the dispatch configured on partner hosted side is available in Experience Management.";
         public const string NoDeliveryPlanFound = "Delivery Policy not found. Please ensure the dispatch configured on partner hosted side is available in Experience Management.";
         public const string NoDispatchFound = "Dispatch not found. Please ensure the dispatch configured on partner hosted side is available in Experience Management.";
@@ -20,11 +20,12 @@ namespace XM.ID.Invitations.Net
         public const string Sampledrecord = "Record sampled";
         public const string NoSamplingConfigured = "Sampling type is not configured hence all records in the payload are processed. Please ensure sampling type is configured in ACM backend using the \"extendedproperties\" API.";
         public const string NoConfigInSPA = "Dispatch API cannot process the incoming request because the Dispatches are not yet configured in ACM front-end. Please configure this by logging into Account Configuration Module.";
-        public const string NoDispatchInSPA = "Dispatch configuration is missing in Account Configuration Module. Please ensure a valid dispatch is configured in Account Configuration Module and same is passed in the API request as well.";
-        public const string InvalidDispatch = "Dispatch passed in the API request is not valid. Please ensure a valid dispatch is configured in Account Configuration Module and same is passed in the API request as well.";
+        public const string NoDispatchInSPA = "Dispatch configuration is missing in Account Configuration Module. Please ensure that a valid dispatch is configured in Account Configuration Module and is passed in the API request. \n https://xm.webex.com/docs/cxsetup/guides/acm/.";
+        public const string InvalidDispatch = "Dispatch details passed in the API request are not valid. Please ensuredispatch is configured correcty in the Account Configuration Module and correct details are passed in the API request. \n https://xm.webex.com/docs/cxsetup/guides/acm/.";
         public const string PausedDispatch = "Dispatch configured to be used to send invites is paused. Invites will not go out unless this is resolved. Please sign in to Experience Management and un-pause the Dispatch. Also note, any changes in Experience Management may take up to an hour to reflect in Dispatch Request API.";
         public const string NovalidDispatchInTheBatch = "No valid dispatch in the batch found. Please setup a valid dispatch configuration in Account Configuration Module.";
         public const string PausedDP = "Delivery Policy configured under Dispatch to be used to send invites is paused. Invites will not go out unless this is resolved. Please sign in to Experience Management and un-pause the Delivery Policy. Also note, any changes in Experience Management may take up to an hour to reflect in Dispatch Request API.";
+        public const string AccountPrefills = "Mandatory account level prefills not found.";
         public const string AllRecordsRejected = "All the records received in the API requests are rejected. Please ensure the channels and UUID are configured correctly in the Delivery policy in Experience Management. Also ensure the Email or SMS values are sent in correct format.";
         public const string AcceptedForProcessing = "Accepted for processing";
         public const string FailDueToEmailOrMobile = "Failed due to invalid Email or mobile number";
@@ -39,6 +40,7 @@ namespace XM.ID.Invitations.Net
         public const string CheckDispatchDataEx1 = "Exception in a Dispatch in CheckDispatchData";
         public const string CheckDispatchDataEx2 = "Exception in CheckDispatchData";
         public const string GetChannelFromDPEx = "Exception in GetChannelFromDP";
+        public const string CheckAccountLevelPrefills = "Exception in CheckAccountPrefills";
         public const string PrefillsMissing = "Some of the prefills with following question IDs are ignored while processing the records. This may be due to missing question in the questionnaire. Please verify and reconfigure this in the Experience Management.";
         public const string BatchingQueueMissing = "Queue to batch the records for bulk token creation is not found. Please verify and correct the batching queue type using \"extendedProperties\" API in Account Configuration Management.";
         public const string BearerTokenNotGenerated = "Authentication Bearer token not generated. Please ensure you are using correct user credentials.";
@@ -72,6 +74,10 @@ namespace XM.ID.Invitations.Net
         public const string GET_DP_BY_ID_API = "/api/DeliveryPlan/";
         public const string GET_QUES_BY_QNR_API = "/api/Questions/Questionnaire";
         public const string GET_LOGIN_TOKEN = "/api/LoginToken";
+        public const string GET_WXM_MERGED_DATA = "/api/DeliveryPlan/WXMMergedData";
+        public const string GET_USER_PROFILE = "/api/Profile";
+        public const string GET_CONTENT_TEMPLATES = "/api/ContentTemplates";
+        
 
         public static string BASE_URL;
         public static double AuthTokenCacheExpiryInSeconds;
