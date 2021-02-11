@@ -60,6 +60,7 @@ namespace SFTPToS3Sync.Domains
                     }
                     catch (Exception ex)
                     {
+                        Console.WriteLine("SFTP connection failed.");
                         if (retries > 3)
                         {
                             SSLM.logs.Add(mongoDBConnector.CreateLogEvent(SSLM.SFTPConnectivityUnsuccessful(ex)));
@@ -105,6 +106,7 @@ namespace SFTPToS3Sync.Domains
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Some exception occured in SFTP {ex}");
                 SSLM.logs.Add(mongoDBConnector.CreateLogEvent(SSLM.InternalException(ex)));
             }
         }

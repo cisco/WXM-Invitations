@@ -49,7 +49,7 @@ namespace SFTPToS3Sync.BackgroundServices
                 _ => @"0 */10 * * * *",
             };
             _schedule = CrontabSchedule.Parse(Schedule, new CrontabSchedule.ParseOptions { IncludingSeconds = true });
-            _nextRun = _schedule.GetNextOccurrence(DateTime.Now);
+            _nextRun = DateTime.Now;
 
         }
 
@@ -100,6 +100,7 @@ namespace SFTPToS3Sync.BackgroundServices
 
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
+            Console.WriteLine("Stopping service");
             await base.StopAsync(cancellationToken);
             SSLM.logs.Add(MongoDBConnector.CreateLogEvent(SSLM.ApplicatonStopped));
         }

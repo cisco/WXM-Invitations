@@ -81,6 +81,7 @@ namespace SFTPToS3Sync.Domains
                 }
                 catch (Exception ex)
                 {
+                    Console.WriteLine($"Upload Failed {ex}");
                     SSLM.logs.Add(mongoDBConnector.CreateLogEvent(SSLM.InternalException(ex)));
                     if (tries > 3)
                         return false;

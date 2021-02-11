@@ -43,6 +43,7 @@ namespace SFTPToS3Sync.Helper
             await LogEventCollection.InsertManyAsync(
                 logEvents.Where(x => x.LogMessage.IsLogInsertible(LogLevel))
                 );
+            logEvents.Clear();
         }
 
         public LogEvent CreateLogEvent(LogMessage logMessage)
