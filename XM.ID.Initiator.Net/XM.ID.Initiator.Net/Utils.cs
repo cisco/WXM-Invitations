@@ -62,7 +62,8 @@ namespace XM.ID.Initiator.Net
                 FileName = filename,
                 Id = ObjectId.GenerateNewId().ToString(),
                 DisplayFileName = displayFilename,
-                NoOfBatches = numberofBatches
+                NoOfBatches = numberofBatches,
+                CreatedOn = DateTime.UtcNow
             };
             await Resources.GetInstance().RequestInitiatorCollection.InsertOneAsync(record);
         }

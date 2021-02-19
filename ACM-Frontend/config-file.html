@@ -58,7 +58,7 @@
                                 <select class="select-text" id="getdispatchers"
                                     onchange="getDisptachById(this.options[this.selectedIndex].getAttribute('questionId'))"
                                     required>
-                                    <option value="" data-questionId="ss" id="selectoption"> Select </option>
+                                    <option value="" data-questionId="ss" id="selectoption" > Select </option>
                                 </select>
                                 <!-- No-dispatcher-error-msg -->
                                 <span id="error-dispatch-name" class="dispatch-error-msg">No dispatch
@@ -163,7 +163,8 @@
                                                 class="select-text questionairres" required>
                                                 <option value="MessageBird" id="select">Message Bird</option>
                                                 <option value="customSMS" id="select">Custom SMS</option>
-                                                <option value="Pinnacle" id="dispatch">  Pinnacle </option>
+                                                <option value="Pinnacle" id="select">  Pinnacle </option>
+                                                <option value="VFSms" id="select">  VF SMS </option>
                                                 <!-- Add new Email Vendor name for dropdown selection -->
                                             </select>
 
@@ -195,6 +196,7 @@
                                     <span id="setShortCode"></span>
 
                                 </div>
+                                <!-- pinnacle preview value from API -->
                                 <div class="pinnacle">
                                     <h4> Sender ID </h4>
                                     <span id="setpinnacleSenderID"></span>
@@ -204,6 +206,19 @@
                                     <span id="setpinnacleApiKey"></span>
                                     <h4> Batch Size</h4>
                                     <span id="setpinnacleBatchSize"></span>
+                                </div>
+                                <!-- vfsms preview value from API -->
+                                <div class="vfsms">
+                                    <h4> Sender ID </h4>
+                                    <span id="setvfsmsSenderID"></span>
+                                    <h4> Endpoint </h4>
+                                    <span id="setvfsmsEndPoint"></span>
+                                    <h4> User Id </h4>
+                                    <span id="setvfsmsUserId"></span>
+                                    <h4> Password </h4>
+                                    <span id="setvfsmsPassword"></span>
+                                    <h4> Batch Size</h4>
+                                    <span id="setvfsmsBatchSize"></span>
                                 </div>
                             </div>
                             <!-- Adding the Static response for selected questions Prefill  -->
@@ -515,12 +530,28 @@
             </div>
             <div id="content03">
                 <div class="heading">
+                    <!-- <div class="report-config" onclick="openReportConfig(event)">
+                        <i class="fas fa-cogs"></i> Configure Data Slices In Report
+                    </div> -->
                     <h1>Request a Report</h1>
+                    
                 </div>
 
-                <p>You can request a operations metrics report to be generated and sent via email as an attachment. Reports can be generated for up to last 90 days.
+                <p>You can request a operations metrics report to be generated and sent via email as an attachment. Reports can be generated for up to last 90 days. 
+                <!-- <p><span id="getDataSliceNumber"></span> additional questions have been added for data slices. </p> -->
                 </p>
                 <form id="reportForm">
+                    <!-- <div class="reportConfigCheckbox">
+                        <div>
+                            <input type="radio" id="operationMetrics" class="radio1" checked="true"  value="Operations Metrics Report">
+                            <label for="operationMetrics">Operations Metrics Report</label><br>
+                        </div>
+                        <div>
+                            <input type="radio" id="detailedLog"  class="radio1"   value="Detailed Logs">
+                            <label for="detailedLog">Detailed Logs</label><br>
+                        </div>
+                         <span class="info"></span>
+                    </div> -->
                     <div class="datepickerGroup">
                         <div class="form__group">
                             <span  class="iconFromReport"> <i class="far from-calendar-icon fa-calendar-alt"></i></span>
@@ -782,6 +813,56 @@
         </form>
     </div>
 </div>
+<!-- vfsms model Popup -->
+<div id="vfsmsOpenPopup" class="modal">
+
+    <!-- Modal content -->
+    <div class="modal-content">
+        <div class="heading">
+            <h1>Update VF SMS Setting</h1>
+        </div>
+        <p>You can update the master VF SMS settings as stored in the central database below. Please make
+            any change carefully as updating these details may impact any other dispatch using this VF SMS. To
+            ensure
+            things do not break, please check all other dispatches configured to use this VF SMS.</p>
+        <!-- CustomSMPT form feild-->
+        <form id="vfsmsSubmitForm">
+            <div>
+                <div class="form__group  ">
+                    <label for="getvfsmsSenderId" class="form__label required">Sender ID  </label>
+                    <input type="text" id="getvfsmsSenderId" name="SenderId" value="" class="form__field" required
+                        placeholder="Sender ID">
+                </div>
+                <div class="form__group  ">
+                    <label for="getvfsmsEndPoint" class="form__label required"> Endpoint </label>
+                    <input type="text" id="getvfsmsEndPoint" name="EndPoint" value="" class="form__field" required
+                        placeholder="Endpoint">
+                </div>
+
+                <div class="form__group">
+                    <label for="getvfsmsUserId" class="form__label required"> User Id</label>
+                    <input type="text" id="getvfsmsUserId" name="UserId" value="" class="form__field"
+                        required placeholder="Enter SMTP Username">
+                </div>
+                <div class="form__group">
+                    <label for="getvfsmsPassword" class="form__label required"> Password </label>
+                    <input type="password" id="getvfsmsPassword" name="Password" value="" class="form__field"
+                        required placeholder="Enter SMTP Password">
+                </div>
+                <div class="form__group">
+                    <label for="getvfsmsBatchSize" class="form__label required">Batch Size</label>
+                    <input type="number" min="0" oninput="this.value = Math.abs(this.value)" onPaste="return false"
+                        id="getvfsmsBatchSize" name="BatchSize" value="" class="form__field" required
+                        placeholder="Enter Batch Size">
+                </div>
+            </div>
+            <div class="buttons">
+                <div><button onclick="vendorvfsmsUpdateAPI(event)" class="button-save">Save Changes</button></div>
+                <div><button id="vfsmsPopupCancel" class="button-cancel">Cancel</button></div>
+            </div>
+        </form>
+    </div>
+</div>
     </div>
     <!-- Custom SMS model Popup -->
     <div id="customSmsOpenPopup" class="modal">
@@ -938,6 +1019,50 @@
         </div>
       
     </div>
+    <!--Report Config-->
+    <div id="reportConfigPopup" class="modal">
+
+        <!-- Modal content -->
+        <div class="modal-content">
+            <div class="heading">
+                <h1>Configure Data Slices In Report</h1>
+            </div>
+            <p>The report includes data sliced by multiple attributes by default. You can configure additional data slices based on single select pre-fill questions to the Overall Performance sheet. Once configured, the report will have data slices available for the selected questions, starting from the date they were added here.
+               </p>
+               <p>
+                We recommend to include not more than 2-3 questions as this significantly increases the data we need to store to make these data slices available
+               </p>
+               <div id="icon-block1">
+                <br>
+                <span><i class="fas fa-spinner fa-spin"></i> Please wait while we get the details...</span>
+            </div>
+            <form id="reportConfigForm">
+                <label for="send-sms-using" class="form__label">Pre-Fill Question to Slice Data
+                </label>
+                <div class="form__group">
+                <select class="select-text select-data" id="getQualifiedPrefills">
+                                     <option selected  value="Select Question"> Select Question </option>
+                                </select>
+                                <span id="add-questions"><i class="far fa-plus-square"></i></span>
+                </div>
+                <span id="report-question-error"> Pre-Fill Question value is required</span>    
+                     <div class="storeReportValue">
+
+                     </div> 
+                     
+                           
+                <!-- Save and Cancel button -->
+                
+            </form>
+            <div class="buttons">
+
+                <div><button class="button-save" onclick="postReportConfigValue(event)">Save
+                        Changes</button></div>
+                <div><button id="reportConfigCancel" class="button-cancel">Cancel</button></div>
+            </div>
+        </div>
+      
+    </div>
     <div id="reportPopup" class="modal">
 
         <!-- Modal content -->
@@ -974,7 +1099,9 @@
     var superAdminNotiOpen = document.getElementById("superAdminNotificationPopup"); //Open sparPost Popup
     var mandrillOpen = document.getElementById("mandrillOpenPopup"); //Open mandrill popup
     var pinnacleOpen = document.getElementById("pinnacleOpenPopup"); // Open Pinnacle Popup
-    var smtpSettingsOpen = document.getElementById("customSettingsOpenPopup"); // Open Pinnacle Popup
+    var smtpSettingsOpen = document.getElementById("customSettingsOpenPopup"); // Open customSettings Popup
+    var vfsmsOpen = document.getElementById("vfsmsOpenPopup"); // Open vfsmsOpen Popup
+    var reportConfigOpen = document.getElementById("reportConfigPopup"); // Open report config Popup
     /**
      * Add the new vendor modal with right ID
      * */
@@ -987,7 +1114,9 @@
     var superAdminNotiCancel = document.getElementById("superAdminNotiCancel");
     var mandrillCancel = document.getElementById("mandrillPopupCancel");
     var pinnacleCancel = document.getElementById("pinnaclePopupCancel");
+    var vfsmsCancel = document.getElementById("vfsmsPopupCancel");
     var smtpSettingsCancel = document.getElementById("smtpSettingsPopupCancel");
+    var reportConfigCancel = document.getElementById("reportConfigCancel"); // Open report config Popup
     // When the user clicks on button (x), close the modal
     CustomSmptCancel.onclick = function(event) {
         event.preventDefault();
@@ -996,6 +1125,20 @@
             "overflow": "auto"
         });
         $(".form-error-msg").hide();
+    }
+    reportConfigCancel.onclick = function(event) {
+        event.preventDefault();
+        reportConfigOpen.style.display = "none";
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".form-error-msg").hide();
+        
+        $(".storeReportValue .form__group").remove();
+        $(".reportConfigOption").remove();
+        $("#reportConfigForm").hide();
+        $("#report-question-error").hide();
+        $('#icon-block1').show();
     }
     smtpSettingsCancel.onclick = function(event) {
         event.preventDefault();
@@ -1064,6 +1207,14 @@
         });
         $(".form-error-msg").hide();
     }
+    vfsmsCancel.onclick = function(event) {
+        event.preventDefault();
+        vfsmsOpen.style.display = "none";
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".form-error-msg").hide();
+    }
 
     // email vendorname display popup
     function getemailvendorbyname(event) {
@@ -1123,6 +1274,17 @@ function openSmtpSettings(event){
         });
         smtpSettingsOpen.style.display = "block";
 }
+// it will open the report config 
+function openReportConfig(event){
+    event.preventDefault();
+    getReportConfigData();
+    $(".form-error-msg").hide();
+    // fetchSmtpSettings();
+        $("body").css({
+            "overflow": "hidden"
+        });
+        reportConfigOpen.style.display = "block";
+}
     function getsmsvendorbyname(event) {
         event.preventDefault();
 
@@ -1152,6 +1314,15 @@ function openSmtpSettings(event){
             });
            
             pinnacleOpen.style.display = "block";
+        }
+        if (document.getElementById('getVendorSms').value == "VFSms") {
+            $(".testEmailGroup .form-error-msg").hide();
+            getvfsSMSData();
+            $("body").css({
+                "overflow": "hidden"
+            });
+           
+            vfsmsOpen.style.display = "block";
         }
 
         // Add the new sms vendor popup trigger here

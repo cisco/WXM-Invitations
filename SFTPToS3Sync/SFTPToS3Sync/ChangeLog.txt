@@ -1,3 +1,3 @@
 ﻿Version 1.0.11
 	- Cleared the list containing event logs after each run.
-	- The application will start the sync process as soon as process starts.
+	- The application will start the sync process as soon as started.

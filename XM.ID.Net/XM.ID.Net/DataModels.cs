@@ -1050,6 +1050,7 @@ namespace XM.ID.Net
         public string FileName { get; set; }
         public string NoOfBatches { get; set; }
         public string BatchId { get; set; }
+        public DateTime CreatedOn { get; set; }
     }
     #endregion
 }

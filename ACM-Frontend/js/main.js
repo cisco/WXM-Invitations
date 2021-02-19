@@ -9,7 +9,7 @@ var isProduction = false;
 var customBaseURL = sessionStorage.getItem("customBaseURL");
 
 
-var BASE_URL = "{DispatchAPI_Base_URL}";
+var BASE_URL = "https://invitations-api.azurewebsites.net";
 
 /**
  * Global configuration for setting the endpiont
@@ -49,6 +49,17 @@ var pinnacleVendor = {
     endPoint: "#getpinnacleEndPoint",
    apiPinnacleKey : "#getpinnacleApiKey",
    pinnacleBatchSize : "#getpinnacleBatchSize"
+};
+
+/**
+ * vfsms specific form map
+ */
+var vfsmsVendor = {
+    senderId: "#getvfsmsSenderId",
+    endPoint: "#getvfsmsEndPoint",
+    getvfsmsUserId : "#getvfsmsUserId",
+    getvfsmsPassword : "#getvfsmsPassword",
+    vfsmsBatchSize : "#getvfsmsBatchSize"
 };
 
 /**
@@ -165,7 +176,12 @@ var fieldsWithRequiredValidators = [
     "#getpinnacleSenderId",
    "#getpinnacleEndPoint",
   "#getpinnacleApiKey",
-  "#getpinnacleBatchSize"
+  "#getpinnacleBatchSize",
+  "#getvfsmsSenderId",
+  "#getvfsmsUserId",
+  "#getvfsmsPassword",
+   "#getvfsmsEndPoint",
+  "#getvfsmsBatchSize"
 ];
 
 /* logTablesHeaders */
@@ -222,6 +238,9 @@ var emptyObject ={};
 var dateFormat = "dd/mm/yy";
 var reportEmail;
 var getSmtpSettings;
+var getPrefillSlicesData = [];
+var getQualifiedPrefills = [];
+var dataSliceValue;
 
 
 /**
@@ -294,8 +313,10 @@ if (value !== "" && validate(value) === false){
   return false;
 }else{
   $(element).closest('.form__group').find('.notification-error').remove();
+  if(!$('.error-msg').is(':visible')){
   document.querySelector(".error-save-vendor").style.display = "none"
   $("#generate-dispatcher").attr("disabled", false);
+  }
   return false;
 }
 }
@@ -364,17 +385,19 @@ function getAuthenticationToken(user) {
             "Content-Type": "application/json",
         },
         data: JSON.stringify(user),
-        
+        statusCode: {
+         
+            502: function () {
+                //when no content is avaible in API
+                document.getElementById("show-error").innerHTML = "Unable to connect to the server. Please try after sometime.";
+           hidespinner();
+            } 
+        },
         error: function (xhr, error) {
             // disable the loading icon and enable the text in button as well as showing error message
             
-           var resMsg = JSON.parse(xhr.responseText);
-           if(resMsg.isSuccessful === false){
-           document.getElementById("show-error").innerHTML = resMsg.message;
-           hidespinner();
-           
-            }
-            else if(user.Password === "" && user.Username === "" ){
+          
+         if(user.Password === "" && user.Username === "" ){
                 document.getElementById("show-error").innerHTML = 'The Username/Password field is required';
                 hidespinner();
             }
@@ -387,8 +410,23 @@ function getAuthenticationToken(user) {
                 document.getElementById("show-error").innerHTML = 'The Password field is required';
                 hidespinner();
             }
+            else if(xhr.status === 502){
+                document.getElementById("show-error").innerHTML = 'Unable to connect to the server. Please try after sometime.';
+                hidespinner();
+            }
+            else if(xhr.status === 404){
+                document.getElementById("show-error").innerHTML = 'Unable to connect to the server. Please try after sometime.';
+                hidespinner();
+            }
+        var resMsg = JSON.parse(xhr.responseText);
+           if(resMsg.isSuccessful === false){
+            document.getElementById("show-error").innerHTML = resMsg.message;
+           hidespinner();
+           
+            }
             
         },
+        
     };
     $.ajax(settings).done(function (oResponse) {
    
@@ -404,6 +442,7 @@ function getAuthenticationToken(user) {
             window.open(current, "_self");
         }
     });
+    
 }
 
 // Create dispatches list in the dropdown select and queue name / queue connection string
@@ -446,7 +485,8 @@ function getDispatcherlist() {
             
             getReportDetails();
             fetchSmtpSettings();
-           
+            //getPrefilledConfigured();
+            
             // get the queuetype and queue connection string and display it in the bottom of the page
             if (data.queue.queueType === "") {
                 document.getElementById("queue-vendor-name-error").style.display =
@@ -590,6 +630,8 @@ function getDisptachById(data) {
             }
            else if(data.channelDetails.sms.vendorname === "Pinnacle"){
                 document.getElementById("getVendorSms").selectedIndex = 2;
+            }else if(data.channelDetails.sms.vendorname === "VFSms"){
+                document.getElementById("getVendorSms").selectedIndex = 3;
             }
             else{
                 document.getElementById("getVendorSms").selectedIndex = 0;
@@ -636,6 +678,9 @@ function getDisptachById(data) {
             }
             else if(data.channelDetails.sms.vendorname === "Pinnacle"){
                 getPinnacleSMSData();
+            }
+            else if(data.channelDetails.sms.vendorname === "VFSms"){
+                getvfsSMSData();
             }
             else{
                 getMessageBirdData();
@@ -892,6 +937,87 @@ function vendorPinnacleUpdateAPI(event) {
 
         // Used to enable the scroll and close the SMTP POP-up and enable the save changes button in bottom.
         var modal = document.getElementById("pinnacleOpenPopup");
+        modal.style.display = "none";
+        enableDisableSaveButton();
+        $("body").css({
+            overflow: "auto",
+        });
+    }
+}
+
+// on click on the save changes button in VF SMS Popup
+function vendorvfsmsUpdateAPI(event) {
+    event.preventDefault();
+    for (var key in vfsmsVendor) {
+        var selector = getElement(vfsmsVendor[key]);
+        if (key === "email" && (required(selector) || emailFormat(selector))) {
+            //  validators failed
+            return false;
+        } else if (key !== "email" && required(selector)) {
+            // validator failed
+            return false;
+        }
+    }
+    if (!$(".form-error-msg").is(":visible")) {
+        // set the vfsms value inside the preview div and hidding the all error message
+        document.getElementById(
+            "setvfsmsSenderID"
+        ).innerHTML = document.getElementById("getvfsmsSenderId").value;
+        document.getElementById(
+            "setvfsmsEndPoint"
+        ).innerHTML = document.getElementById("getvfsmsEndPoint").value;
+        document.getElementById(
+            "setvfsmsUserId"
+        ).innerHTML = document.getElementById("getvfsmsUserId").value;
+        document.getElementById(
+            "setvfsmsPassword"
+        ).innerHTML = document.getElementById("getvfsmsPassword").value;
+        document.getElementById(
+            "setvfsmsBatchSize"
+        ).innerHTML = document.getElementById("getvfsmsBatchSize").value;
+        
+        
+        $(function () {
+            // created Customer SMTP object details for Post API
+            const object = {
+                VendorType: "Sms",
+                VendorName: document.getElementById("getVendorSms").value,
+                IsBulkVendor: true,
+                VendorDetails: {},
+            };
+            var object1 = $("#vfsmsSubmitForm").serializeObject();
+            object.VendorDetails = Object.assign(object.VendorDetails, object1);
+            var settings = {
+                // post the created Customer SMTP object to the vendor API
+                async: true,
+                crossDomain: true,
+                url: config.baseURL + "/api/config/vendor",
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: "Bearer " + auth_token,
+                },
+                data: JSON.stringify(object),
+                error: function (xhr, error) {
+                    alert("value is not posted");
+                },
+            };
+            $.ajax(settings).done(function (data) {
+                // post Success message
+                if (data) {
+                    alert("Vendor details saved successfully.");
+                    document.getElementById("myBtn1").innerHTML = "Edit Details For VF SMS";
+                    document.getElementById("error-msg1").style.display = "none";
+                    document.querySelector(".vfsms").style.display = "block";
+                    enableDisableSaveButton();
+                }
+            });
+            return false;
+        });
+
+        // Used to enable the scroll and close the SMTP POP-up and enable the save changes button in bottom.
+        var modal = document.getElementById("vfsmsOpenPopup");
         modal.style.display = "none";
         enableDisableSaveButton();
         $("body").css({
@@ -1211,6 +1337,9 @@ function onSelectChangesms() {
     if (document.getElementById("getVendorSms").value == "Pinnacle") {
         getPinnacleSMSData();
     }
+    if (document.getElementById("getVendorSms").value == "VFSms") {
+        getvfsSMSData();
+    }
 }
 
 // static response field form creation and generating the
@@ -1509,6 +1638,7 @@ function getPinnacleSMSData() {
                   document.getElementById("error-msg1").style.display = "block";
                   getElement(".MessageBird").style.display = "none";
                   getElement(".pinnacle").style.display = "none";
+                  getElement(".vfsms").style.display = "none";
                   document.getElementById("error-msg1").innerHTML =
                       "Pinnacle settings missing. Please add details";
                   enableDisableSaveButton();
@@ -1527,6 +1657,8 @@ function getPinnacleSMSData() {
                 "Edit Details For Pinnacle";
             getVendorByName = oResponse.vendorDetails;
             getElement(".MessageBird").style.display = "none";
+            getElement(".smsEditedValue").style.display = "none";
+            getElement(".vfsms").style.display = "none";
             getElement(".pinnacle").style.display = "block";
             getElement(".SparkPostValueEdited").style.display = "none";
             document.getElementById("setpinnacleSenderID").innerHTML = getVendorByName.SenderId;
@@ -1541,6 +1673,71 @@ function getPinnacleSMSData() {
                 document.getElementById("getpinnacleApiKey").value =
                 getVendorByName.ApiKey;
                 document.getElementById("getpinnacleBatchSize").value =
+                getVendorByName.BatchSize;
+            enableDisableSaveButton();
+        }
+    });
+}
+
+// Get the value from Mandrill post API
+function getvfsSMSData() {
+    var settings1 = {
+        async: true,
+        crossDomain: true,
+        url: config.baseURL + "/api/config/vendor/VFSms",
+        method: "GET",
+        headers: {
+            Authorization: "Bearer " + auth_token,
+        },
+        statusCode: {
+            // When no data presented this block will excecute
+            204: function () {
+                  // When no data present in API this block will excecute
+                  getElement(".smsEditedValue").style.display = "none";
+                  document.getElementById("myBtn1").innerHTML =
+                      "Add Details For VF SMS";
+                  document.getElementById("error-msg1").style.display = "block";
+                  getElement(".MessageBird").style.display = "none";
+                  getElement(".pinnacle").style.display = "none";
+                  getElement(".vfsms").style.display = "none";
+                  document.getElementById("error-msg1").innerHTML =
+                      "VF SMS settings missing. Please add details";
+                  enableDisableSaveButton();
+            },
+        },
+
+        error: function (xhr, error) {
+            alert("API error"); // show the API error here
+        },
+    };
+    $.ajax(settings1).done(function (oResponse) {
+        if (oResponse) {
+            document.getElementById("error-msg1").style.display = "none";
+            //display the API data in both sparkpost form and sparkpost preview
+            document.getElementById("myBtn1").innerHTML =
+                "Edit Details For VF SMS";
+            getVendorByName = oResponse.vendorDetails;
+            getElement(".MessageBird").style.display = "none";
+            getElement(".vfsms").style.display = "block";
+            getElement(".pinnacle").style.display = "none";
+            getElement(".smsEditedValue").style.display = "none";
+            getElement(".SparkPostValueEdited").style.display = "none";
+            document.getElementById("setvfsmsSenderID").innerHTML = getVendorByName.SenderId;
+            document.getElementById("setvfsmsEndPoint").innerHTML =
+                getVendorByName.EndPoint;
+                document.getElementById("setvfsmsUserId").innerHTML =
+                getVendorByName.UserId;
+                document.getElementById("setvfsmsPassword").innerHTML =
+                "******";
+                document.getElementById("setvfsmsBatchSize").innerHTML = getVendorByName.BatchSize;
+                document.getElementById("getvfsmsSenderId").value = getVendorByName.SenderId;
+            document.getElementById("getvfsmsEndPoint").value =
+                getVendorByName.EndPoint;
+                document.getElementById("getvfsmsUserId").value =
+                getVendorByName.UserId;
+                document.getElementById("getvfsmsPassword").value =
+                getVendorByName.Password;
+                document.getElementById("getvfsmsBatchSize").value =
                 getVendorByName.BatchSize;
             enableDisableSaveButton();
         }
@@ -1566,6 +1763,7 @@ function getCustomSMSData() {
                     "Add Details For Custom SMS";
                 document.getElementById("error-msg1").style.display = "block";
                 getElement(".MessageBird").style.display = "none";
+                getElement(".vfsms").style.display = "none";
                 document.getElementById("error-msg1").innerHTML =
                     "Custom SMS settings missing. Please add details";
                 enableDisableSaveButton();
@@ -1584,6 +1782,7 @@ function getCustomSMSData() {
             document.getElementById("error-msg1").style.display = "none";
             getElement(".MessageBird").style.display = "none";
             getElement(".pinnacle").style.display = "none";
+            getElement(".vfsms").style.display = "none";
             document.getElementById("myBtn1").innerHTML =
                 "Edit Details For Custom SMS";
             getVendorByName = oResponse.vendorDetails;
@@ -1679,6 +1878,7 @@ function getMessageBirdData() {
                 // When no data present in API this block will excecute
                 getElement(".smsEditedValue").style.display = "none";
                 getElement(".pinnacle").style.display = "none";
+                getElement(".vfsms").style.display = "none";
                 document.getElementById("myBtn1").innerHTML =
                     "Add Details For Message Bird";
                 document.getElementById("error-msg1").style.display = "block";
@@ -1700,6 +1900,7 @@ function getMessageBirdData() {
             getVendorByName = oResponse.vendorDetails;
             getElement(".smsEditedValue").style.display = "none";
             getElement(".pinnacle").style.display = "none";
+            getElement(".vfsms").style.display = "none";
             document.getElementById("myBtn1").innerHTML =
                 "Edit Details For Message Bird";
             document.getElementById("setMessageBird").innerHTML = getVendorByName.Url;
@@ -1787,6 +1988,9 @@ sessionStorage.removeItem("Oauth_Token");
 
 
 $(function () {
+    
+        
+    
     var dateFormat = "dd/mm/yy";
  // viewlog From to date  
     from = $( "#from" )
@@ -1843,6 +2047,14 @@ to = $( "#to" ).datepicker({
 });
 $('.radio').change(function() {
     $('.radio').not(this).prop('checked', false);
+  });
+  $('.radio1').change(function() {
+    $('.radio1').not(this).prop('checked', false);
+    // if($(this).val() === "Operations Metrics Report" ){
+    //     $('.reportConfigCheckbox .info').text("prasanna");
+    // }else{
+    //     $('.reportConfigCheckbox .info').text("Devish");
+    // }
   });
 
 function getIdValue(e){
@@ -1914,7 +2126,6 @@ if (!$("#tokenIDValue").is(":visible")){
 $('#logInfo span').remove();
 $('#logTable').remove();
 $('#excelDownload').show();
-console.log(object1);
     var logs = {
         async: true,
         crossDomain: true,
@@ -1950,7 +2161,7 @@ console.log(object1);
            
         },
     };
-    console.log(logs);
+    
     $.ajax(logs).done(function (oResponse) {
         if (oResponse) {
             
@@ -2166,6 +2377,7 @@ $(function () {
     beforeDate.datepicker( "option", "maxDate", getDate( this ) );
     required("#afterDate");
    });
+
    clearVariableDatepicker1();
 })
 
@@ -2220,6 +2432,7 @@ function getReportDetails(){
     $.ajax(reportData).done(function (data) {
         if (data) {
             $("#reportForm").show();
+            $("#content03 > p").show();
             $("#block-report1").hide();
             reportObject = Object.assign(emptyObject, data);
            
@@ -2287,6 +2500,11 @@ function getReportDetails(){
 
 // send  the metric report to the email ID
   function metricReport(){
+      var detailLog = false;
+      if($('#detailedLog').is(':checked')) 
+        { 
+            detailLog = true;
+         }
       var metricsReport ={
         afterdate: document.getElementById("beforeDate").value,
         beforedate: document.getElementById("afterDate").value,
@@ -2359,6 +2577,235 @@ function getReportDetails(){
  $("#reportEmail").val('');
  $(".form-error-msg").hide();
    }
+
+   function getReportConfigData(){
+    $('#reportConfigForm').hide();
+    $('#icon-block1').show();
+    var getReportData = {
+        async: true,
+        crossDomain: true,
+        url: config.baseURL + "/api/GetQualifiedPrefills",
+        method: "GET",
+        headers: {
+            Authorization: "Bearer " + auth_token,
+        },
+        statusCode: {
+            401: function () {
+                //when login token is expired. alert message is popuped and go to login page
+                alert(
+                    "Login token is expired. Please logout and login again to get latest changes"
+                );
+                var current = window.location.href;
+                var i = current.lastIndexOf("/");
+                if (i != -1) {
+                    current = current.substr(0, i) + "/index.html";
+                }
+
+                window.open(current, "_self");
+            },
+            204: function () {
+                //when no content is avaible in API
+                $('#icon-block1').hide();
+                $('#reportConfigForm').show();
+            } 
+        },
+        error: function (xhr, error) {
+            // alert(
+            //     "Login token is expired. Please logout and login again to get latest changes");
+            //     var current = window.location.href;
+            //     var i = current.lastIndexOf("/");
+            //     if (i != -1) {
+            //         current = current.substr(0, i) + "/index.html";
+            //     }
+
+            //     window.open(current, "_self");
+            $('#icon-block1').hide();
+            $('#getQualifiedPrefills').show();
+            console.log("GetQualifiedPrefills API is not working");
+        
+        },
+    };
+    $.ajax(getReportData).done(function (data) {
+        if (data) {
+            getQualifiedPrefills = data;
+            for(var i = 0; i < data.length; i++){
+          
+             
+               $("#getQualifiedPrefills").append(`<option class="reportConfigOption"  value="${data[i].note}">${data[i].note}</option>`); 
+            
+            }
+    
+        }
+        getPrefilledConfigured();
+    });
+   }
+
+   function getPrefilledConfigured(){
+    $(".storeReportValue .form__group").remove();
+    
+    //$("#reportConfigForm").hide();
+    var getReportData = {
+        async: true,
+        crossDomain: true,
+        url: config.baseURL + "/api/GetPrefillSlices",
+        method: "GET",
+        headers: {
+            Authorization: "Bearer " + auth_token,
+        },
+        statusCode: {
+            401: function () {
+                //when login token is expired. alert message is popuped and go to login page
+                alert(
+                    "Login token is expired. Please logout and login again to get latest changes"
+                );
+                var current = window.location.href;
+                var i = current.lastIndexOf("/");
+                if (i != -1) {
+                    current = current.substr(0, i) + "/index.html";
+                }
+
+                window.open(current, "_self");
+            },
+            204: function () {
+                //when no content is avaible in API
+                $('#icon-block1').hide();
+                $('#reportConfigForm').show();
+            } 
+        },
+        error: function (xhr, error) {
+            // alert(
+            //     "Login token is expired. Please logout and login again to get latest changes");
+            //     var current = window.location.href;
+            //     var i = current.lastIndexOf("/");
+            //     if (i != -1) {
+            //         current = current.substr(0, i) + "/index.html";
+            //     }
+
+            //     window.open(current, "_self");
+            $('#icon-block1').hide();
+                $('#getQualifiedPrefills').show();
+          alert("GetPrefillSlices API is not working");
+        
+        },
+    };
+    $.ajax(getReportData).done(function (data) {
+       
+      
+        if (data) {
+            dataSliceValue = data.length;
+            $('#getDataSliceNumber').text(dataSliceValue);
+            for(var i = 0; i < data.length; i++){
+                getPrefillSlicesData = data[i].note;
+               
+                $('#icon-block1').hide();
+                $('#reportConfigForm').show();
+                
+                
+                $(".storeReportValue").append(`<div class="form__group"><input type="text"  placeholder="Static Response" disabled  class="selectedQuestionValue form__field" name="value" value="${data[i].note}" required />
+                <span class="remove-question" onclick="removeQuestionfield(event)"><i class="far fa-minus-square"></i></span><div>`);
+                $(`#getQualifiedPrefills option[value='${data[i].note}']`).each(function () {
+                    $(this).remove();
+                    
+                });
+            }
+            
+        }
+        
+       
+    });
+    document.getElementById("icon-block").style.display = "none";
+   }
+
+  function postReportConfigValue(event){
+     event.stopPropagation();
+    
+     $('#getDataSliceNumber').text(dataSliceValue);
+    var storeSlicedData = [];
+     var data = [];
+     $('.storeReportValue .selectedQuestionValue').each(function(){
+        data.push($(this).val());
+      });
+      if($('.storeReportValue .selectedQuestionValue').is(':visible')) {
+        for(var i = 0; i < getQualifiedPrefills.length; i++){
+            
+            var containTrue = data.includes(getQualifiedPrefills[i].note);
+           if(containTrue){
+                storeSlicedData.push(getQualifiedPrefills[i]);
+                
+           }
+        }
+        console.log(storeSlicedData);
+        var settings = {
+            // post the created Customer SMTP object to the vendor API
+            async: true,
+            crossDomain: true,
+            url: config.baseURL + "/api/SetPrefillSlices",
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + auth_token,
+            },
+            data: JSON.stringify(storeSlicedData),
+            error: function (xhr, error) {
+                alert("value is not posted");
+            },
+        };
+        $.ajax(settings).done(function (data) {
+          
+            $('#icon-block1').show();
+            $(".reportConfigOption").remove();
+            $(".storeReportValue .form__group").remove();
+            $("#report-question-error").hide();
+            alert("Data slices are configured successfully");
+            dataSliceValue = data.length;
+        $('#getDataSliceNumber').text(dataSliceValue);
+        
+        });
+       
+
+        $('#reportConfigPopup').hide();
+        $("#reportConfigForm").hide();
+          
+    }else{
+        alert("At least one question prefill is required");
+    }
+   }
+   $("#add-questions").click(function () {
+        addSelectedQuestion();
+   })
+   function addSelectedQuestion(){
+    var selectValue = $("#getQualifiedPrefills").val();
+   
+    if (
+        selectValue !== null &&
+        selectValue !== "Select Question" &&
+        selectValue !== ""
+    ) {
+        $(`#getQualifiedPrefills option[value='${selectValue}']`).each(function () {
+            $(this).remove();
+        });
+        document.getElementById("report-question-error").style.display = "none";
+    $(".storeReportValue").append(`<div class="form__group"><input type="text" placeholder="Static Response" disabled  class="selectedQuestionValue form__field" name="value" value="${selectValue}" required />
+    <span class="remove-question" onclick="removeQuestionfield(event)"><i class="far fa-minus-square"></i></span><div>`);
+    }
+    else {
+        document.getElementById("report-question-error").style.display = "block"; // disable the form field error msg
+    }
+   }
+
+   function removeQuestionfield(event) {
+    var value = $(event.target).closest(".form__group").find(".selectedQuestionValue").val();
+    $("#getQualifiedPrefills")
+        .append(`<option class="reportConfigOption"  value="${value}"> 
+    ${value} 
+</option>`);
+    responseValue = $("#response-value").val("");
+  //  document.getElementById("static-response-error").style.display = "none";
+
+    $(event.target).closest(".form__group").remove();
+    enableDisableSaveButton();
+}
 
    // SMTP settings configuration comes here
 
@@ -2576,3 +3023,4 @@ function UpdateCustomSmtpSettings(event) {
        
     }
 }
+

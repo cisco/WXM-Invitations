@@ -69,7 +69,8 @@ namespace XM.ID.Dispatcher.Net
                 { "messagebird", () => new MessageBird() },
                 { "sparkpost", () => new SparkPost() },
                 { "customsms", () => new CustomSMS() },
-                { "pinnacle", () => new Pinnacle() }
+                { "pinnacle", () => new Pinnacle() },
+                { "vfsms", () => new ValueFirstSMS() }
             };
             if (default != additionalDispatchCreatorStrategies)
             {

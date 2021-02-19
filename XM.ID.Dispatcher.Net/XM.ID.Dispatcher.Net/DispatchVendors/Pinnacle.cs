@@ -65,7 +65,7 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                             HttpRequestException httpRequestException = new HttpRequestException($"Pinnacle Post API didn't return a 2xx => response headers: " +
                                 $"{JsonConvert.SerializeObject(response)} => response content: {await response.Content.ReadAsStringAsync()}");
                             messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
-                            messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.Email,
+                            messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.SMS,
                                 messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
                         }
                     }
@@ -80,7 +80,7 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                                 HttpRequestException httpRequestException = new HttpRequestException($"Pinnacle Post API returned a 2xx => response headers: " +
                                     $"{JsonConvert.SerializeObject(response)} => response content: {await response.Content.ReadAsStringAsync()}");
                                 messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
-                                messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.Email,
+                                messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.SMS,
                                     messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, httpRequestException)));
                             }
                         }
@@ -90,7 +90,7 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                             foreach (MessagePayload messagePayload in batchOfMessagePayload)
                             {
                                 messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
-                                messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchSuccessful, EventChannel.Email,
+                                messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchSuccessful, EventChannel.SMS,
                                     messagePayload.QueueData, IRDLM.DispatchSuccessful(Vendor.VendorName)));
                             }
                         }
@@ -101,7 +101,7 @@ namespace XM.ID.Dispatcher.Net.DispatchVendors
                     foreach (MessagePayload messagePayload in batchOfMessagePayload)
                     {
                         messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
-                        messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.Email,
+                        messagePayload.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful, EventChannel.SMS,
                                messagePayload.QueueData, IRDLM.DispatchUnsuccessful(Vendor.VendorName, ex)));
                     }
                 }

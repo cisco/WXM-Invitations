@@ -65,12 +65,12 @@ span#setMultiLanguage {
     margin-left: 30px;
 }
 
-.smsEditedValue span, .emailEditedValue span, .MessageBird span, .SparkPostValueEdited span, #setSuperAdminNotificationData, .mandrillPostValueEdited span, .pinnacle span {
+.smsEditedValue span, .emailEditedValue span, .MessageBird span, .SparkPostValueEdited span, #setSuperAdminNotificationData, .mandrillPostValueEdited span, .pinnacle span, .vfsms span {
     color: #ccc;
     width: 50%;
     display: block;
 }
-.smsEditedValue, .MessageBird, .emailEditedValue, .SparkPostValueEdited, .mandrillPostValueEdited , .pinnacle{
+.smsEditedValue, .MessageBird, .emailEditedValue, .SparkPostValueEdited, .mandrillPostValueEdited , .pinnacle, .vfsms{
     display:none
 }
 .download-btn button {
@@ -225,6 +225,13 @@ span#setMultiLanguage {
     display: none;
     margin-left: 0;
 }
+#report-question-error {
+    position: absolute;
+    top: 62px;
+    color: #EF5451;
+    display: none;
+    margin-left: 0;
+}
 .error-noti, .error-save-vendor{
     font-size: 11px;
     color: #ff0000;
@@ -343,14 +350,28 @@ select.fieldtype.select-text {
     color: #EF5451;
     left: 3px;
 }
+.remove-question {
+    position: relative;
+    top: 0px;
+    cursor: pointer;
+    color: #EF5451;
+    left: 3px;
+}
 #icon-block{
 display: block;
 }
-#btn-addfield{
+#icon-block1{
+    display: block; 
+}
+#btn-addfield, #add-questions{
     position: relative;
     top: 3px;
     cursor: pointer;
-    color: #EF5451; 
+    color: #EF5451;
+}
+#add-questions{
+    margin-left: 20px;
+    left: 4px;
 }
 .select-dispatcher-list{
     display:none;
@@ -427,12 +448,12 @@ form#logsForm {
     border-top: 1px solid #c1c1c1;
 }
 
-.check-box-div {
+.check-box-div, .reportConfigCheckbox {
     margin-top: 20px;
     display: inline-block;
 }
 
-.check-box-div > div {
+.check-box-div > div, .reportConfigCheckbox > div {
     display: block;
     float: left;
     margin-right: 30px;
@@ -440,9 +461,14 @@ form#logsForm {
 textarea:focus, input:focus{
     outline: none;
 }
-.inline-group, .datepickerGroup{
+.inline-group{
     display: inline-block;
     position: relative;
+}
+.datepickerGroup{
+    position: relative;
+    display: inline-block;
+    width: 100%;
 }
 .inline-group div, .datepickerGroup div {
     float: left;
@@ -548,7 +574,7 @@ margin-left: auto;
 .table-area{
     display: none;
 }
-.excelDownload, .inline-group, #reportForm, #block-report1{
+.excelDownload, .inline-group, #reportForm, #block-report1, #reportConfigForm, #content03 > p{
     display: none;
 }
 .log-spinner{
@@ -637,4 +663,32 @@ sup{
 .testEmailGroup .form-error-msg {
 position:absolute;
 top: 62px;
+}
+.report-config{
+    float:right;
+    color: #00bceb;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: none;
+}
+#reportConfigForm {
+    overflow: auto;
+    max-height: 400px;
+    margin-top: 30px;
+}
+.select-data{
+    margin-bottom: 18px;
+}
+.selectedQuestionValue{
+margin: 0px 20px 8px 0;
+}
+/* .reportConfigCheckbox .info {
+    margin-top: 40px;
+    position: relative;
+    display: block;
+    left: 6px;
+} */
+
+#reportConfigForm{
+    position: relative;
 }
