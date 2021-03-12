@@ -1,0 +1,3 @@
+﻿Version 1.0.11 (Date - 08/03/2021)
+	- Fixed the issue of double qoutes in csv file while reading the data from it.
+	- Fixed the same file name issue, due to which old batch Id was being used instead of new one if file name was same.

@@ -1,5 +1,6 @@
 ﻿using Amazon.S3.Model;
 using ClosedXML.Excel;
+using Microsoft.VisualBasic.FileIO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -92,19 +93,21 @@ namespace XM.ID.Initiator.Net
             try
             {
                 int batchSize = int.Parse(Environment.GetEnvironmentVariable("BatchSize"));
-                string filename = S3EventLog.KeyName.Substring(S3EventLog.KeyName.LastIndexOf("/") + 1);
-                string displayFilename = filename;
+                string filename = S3EventLog.KeyName;
+                string displayFilename = S3EventLog.KeyName.Substring(S3EventLog.KeyName.LastIndexOf("/") + 1);
                 filename = filename.Split(".")[0];
                 var batchNumber = filename.Contains("$$$") ? int.Parse(filename.Split("$$$")[1]) : 0;
                 filename = filename.Contains("$$$") ? filename.Split("$$$")[0] : filename;
-                var initiatorRecord = await Utils.GetInitiatorRecordByFilename(filename);
+                string completeFilename = filename;
+                filename = filename.Substring(filename.LastIndexOf("/") + 1);
+                var initiatorRecord = await Utils.GetInitiatorRecordByFilename(completeFilename);
                 if (batchNumber == 0)
                 {
                     BatchId = Guid.NewGuid().ToString();
                     int noOfBatches = DataTable.RowEntries.Count / batchSize;
                     if (DataTable.RowEntries.Count % batchSize > 0)
                         noOfBatches++;
-                    await Utils.InsertInitiatorRecordByFilename(filename, BatchId, noOfBatches.ToString(), displayFilename);
+                    await Utils.InsertInitiatorRecordByFilename(completeFilename, BatchId, noOfBatches.ToString(), displayFilename);
                     if (DataTable.RowEntries.Count > batchSize)
                     {
                         await SplitFile("1", filename, batchSize);
@@ -558,14 +561,14 @@ namespace XM.ID.Initiator.Net
             {
                 using StreamReader streamReader = new StreamReader(stream);
                 int count = 0;
-                while (!streamReader.EndOfStream)
+                using (TextFieldParser parser = new TextFieldParser(streamReader))
                 {
-                    string line = streamReader.ReadLine();
-                    //check for blank rows
-                    if (!string.IsNullOrWhiteSpace(line))
+                    parser.TextFieldType = FieldType.Delimited;
+                    parser.SetDelimiters(",");
+
+                    while (!parser.EndOfData)
                     {
-                        string[] cells = line.Split(",");
-                        //check for rows with all empty values
+                        var cells = parser.ReadFields().ToList();
                         if (cells.Any(x => !string.IsNullOrEmpty(x)))
                         {
                             if (count == 0)

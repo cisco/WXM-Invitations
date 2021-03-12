@@ -50,7 +50,7 @@ namespace XM.ID.Initiator.Net
         internal static async Task<RequestInitiatorRecords> GetInitiatorRecordByFilename(string filename)
         {
             return await Resources.GetInstance().RequestInitiatorCollection.Find(x => x.FileName.Equals(filename))
-                .FirstOrDefaultAsync(); 
+                .SortByDescending(x => x.CreatedOn).FirstOrDefaultAsync(); 
         }
 
         internal static async Task InsertInitiatorRecordByFilename(string filename, string batchID,
