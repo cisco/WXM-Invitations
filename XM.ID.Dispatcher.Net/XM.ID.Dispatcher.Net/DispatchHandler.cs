@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using XM.ID.Dispatcher.Net.DispatchVendors;
 using XM.ID.Net;
@@ -108,33 +109,38 @@ namespace XM.ID.Dispatcher.Net
                 {
                     await Utils.UpdateBulkMessagePayloads(dB_MessagePayloads);
                     Dictionary<string, List<MessagePayload>> ListOfMessagePayloadsByTemplateId = new Dictionary<string, List<MessagePayload>>();
-                    foreach (DB_MessagePayload dB_MessagePayload in dB_MessagePayloads)
+                    var dB_MessagePayloadsPerVendor = dB_MessagePayloads.GroupBy(x => x.BulkVendorName);
+                    foreach (var payloads in dB_MessagePayloadsPerVendor)
                     {
-                        MessagePayload messagePayload = JsonConvert.DeserializeObject<MessagePayload>(dB_MessagePayload.MessagePayload);
-                        messagePayloads.Add(messagePayload);
-                        messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.ReadFromDB(Resources.GetInstance().BulkVendorName)));
-                        if (!ListOfMessagePayloadsByTemplateId.ContainsKey(messagePayload.QueueData.TemplateId))
-                            ListOfMessagePayloadsByTemplateId.Add(messagePayload.QueueData.TemplateId, new List<MessagePayload>());
-                        ListOfMessagePayloadsByTemplateId[messagePayload.QueueData.TemplateId].Add(messagePayload);
-                    }
-                    foreach (KeyValuePair<string, List<MessagePayload>> messagePayloadsByTemplateId in ListOfMessagePayloadsByTemplateId)
-                    {
-                        BulkDispatch bulkDispatch = null;
-                        try
+                        foreach (DB_MessagePayload dB_MessagePayload in payloads)
                         {
-                            bulkDispatch = new BulkDispatch { MessagePayloads = messagePayloadsByTemplateId.Value };
-                            bulkDispatch.ConfigureDispatchVendor();
-                            if (!bulkDispatch.IsDispatchConfigured)
-                                continue;
-                            await bulkDispatch.DispatchReadyVendor.RunAsync(bulkDispatch.MessagePayloads);
+                            MessagePayload messagePayload = JsonConvert.DeserializeObject<MessagePayload>(dB_MessagePayload.MessagePayload);
+                            messagePayloads.Add(messagePayload);
+                            messagePayload.LogEvents.Add(Utils.CreateLogEvent(messagePayload.QueueData, IRDLM.ReadFromDB(Resources.GetInstance().BulkVendorName)));
+                            if (!ListOfMessagePayloadsByTemplateId.ContainsKey(messagePayload.QueueData.TemplateId))
+                                ListOfMessagePayloadsByTemplateId.Add(messagePayload.QueueData.TemplateId, new List<MessagePayload>());
+                            ListOfMessagePayloadsByTemplateId[messagePayload.QueueData.TemplateId].Add(messagePayload);
                         }
-                        catch (Exception ex)
+                        foreach (KeyValuePair<string, List<MessagePayload>> messagePayloadsByTemplateId in ListOfMessagePayloadsByTemplateId)
                         {
-                            bulkDispatch.MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.QueueData, IRDLM.InternalException(ex))));
-                            bulkDispatch.MessagePayloads.ForEach(x => x.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
-                                x.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, x.QueueData, IRDLM.InternalException(ex))));
+                            BulkDispatch bulkDispatch = null;
+                            try
+                            {
+                                bulkDispatch = new BulkDispatch { MessagePayloads = messagePayloadsByTemplateId.Value };
+                                bulkDispatch.ConfigureDispatchVendor();
+                                if (!bulkDispatch.IsDispatchConfigured)
+                                    continue;
+                                await bulkDispatch.DispatchReadyVendor.RunAsync(bulkDispatch.MessagePayloads);
+                            }
+                            catch (Exception ex)
+                            {
+                                bulkDispatch.MessagePayloads.ForEach(x => x.LogEvents.Add(Utils.CreateLogEvent(x.QueueData, IRDLM.InternalException(ex))));
+                                bulkDispatch.MessagePayloads.ForEach(x => x.InvitationLogEvents.Add(Utils.CreateInvitationLogEvent(EventAction.DispatchUnsuccessful,
+                                    x.IsEmailDelivery.Value ? EventChannel.Email : EventChannel.SMS, x.QueueData, IRDLM.InternalException(ex))));
+                            }
                         }
                     }
+                    
                 }
                 catch (Exception ex)
                 {

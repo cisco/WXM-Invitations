@@ -126,7 +126,7 @@ namespace XM.ID.Dispatcher.Net
             try
             {
                 return await Resources.GetInstance().BulkMessagePayloadCollection
-                .Find(x => x.BulkVendorName == Resources.GetInstance().BulkVendorName.ToLower() && x.Status == "Ready")
+                .Find(x => x.Status == "Ready")
                 .Limit(Resources.GetInstance().BulkReadSize)
                 .ToListAsync();
             }
