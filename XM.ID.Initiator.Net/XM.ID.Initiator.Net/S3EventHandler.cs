@@ -40,8 +40,8 @@ namespace XM.ID.Initiator.Net
                 if (!requestPayload.IsTargetFileAvailableAndNotEmpty)
                     return;
 
-                var isFileSplitted = await requestPayload.SplitFileInBatches();
-                if (isFileSplitted)
+                await requestPayload.SplitFileInBatches();
+                if (requestPayload.IsFileSplitted)
                     return;
 
                 requestPayload.ValidateConfigFile();
@@ -72,7 +72,7 @@ namespace XM.ID.Initiator.Net
             }
             finally
             {
-                if (requestPayload.IsTargetFileUploadDirectoryValid)
+                if (requestPayload.IsTargetFileUploadDirectoryValid && !requestPayload.IsFileSplitted)
                     await requestPayload.ArchiveTargetFile();
                 await Utils.FlushLogs(requestPayload);
             }
