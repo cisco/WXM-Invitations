@@ -13,10 +13,9 @@
     <link rel='stylesheet' type='text/css' media='screen' href="css/angularmaterial.css">
     <link rel='stylesheet' type='text/css' media='screen' href="css/style.css">
     <link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
-    <script defer src="./js/all.min.js"></script>
-   
+    <script src="https://kit.fontawesome.com/dce9765cd8.js" crossorigin="anonymous"></script>
   
 <!-- <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"></script> -->
 
@@ -285,8 +284,8 @@
                                                 required placeholder="Enter SMTP Username">
                                         </div>
                                         <div class="form__group  ">
-                                            <label for="getSmtpPassword" class="form__label required"> SMTP Password  </label>
-                                            <input type="password" id="getSmtpPassword" name="SmtpPassword" value="" class="form__field"
+                                            <label for="getSmtpPaValue" class="form__label required"> SMTP Password  </label>
+                                            <input type="password" id="getSmtpPaValue" name="SmtpPassword" value="" class="form__field"
                                                 required placeholder="Enter SMTP Password">
                                         </div>
                                         Math.abs will return whole number value
@@ -435,7 +434,7 @@
 
                 <p>Logs can be viewed and downloaded using Token ID or customer UUID for a selected date range.
                 </p>
-                <form id="logsForm">
+                <form id="logsForm" onsubmit="return false;">
                 <div class="check-box-div">
                     <div>
                         <input type="radio" id="tokenRadio" class="radio" checked  autocomplete="off" onchange="getIdValue(this)" value="Token ID">
@@ -540,7 +539,7 @@
                 <p>You can request a operations metrics report to be generated and sent via email as an attachment. Reports can be generated for up to last 90 days. 
                 <!-- <p><span id="getDataSliceNumber"></span> additional questions have been added for data slices. </p> -->
                 </p>
-                <form id="reportForm">
+                <form id="reportForm" onsubmit="return false;">
                     <!-- <div class="reportConfigCheckbox">
                         <div>
                             <input type="radio" id="operationMetrics" class="radio1" checked="true"  value="Operations Metrics Report">
@@ -614,7 +613,7 @@
                 ensure
                 things do not break, please check all other dispatches configured to use this SMTP.</p>
             <!-- CustomSMPT form feild-->
-            <form id="submitForm">
+            <form id="submitForm" method="post" onsubmit="return false;">
                 <div class="form-properties">
                     <div class="form__group  ">
                         <label for="getSenderName" class="form__label required"> Sender Name </label>
@@ -638,8 +637,8 @@
                             required placeholder="Enter SMTP Username">
                     </div>
                     <div class="form__group  ">
-                        <label for="getSmtpPassword" class="form__label required"> SMTP Password </label>
-                        <input type="password" id="getSmtpPassword" name="SmtpPassword" value="" class="form__field"
+                        <label for="getSmtpPaValue" class="form__label required"> SMTP Password </label>
+                        <input type = "password"   id = "getSmtpPaValue" name = "SmtpPassword" value="" class="form__field" autocomplete="off"
                             required placeholder="Enter SMTP Password">
                     </div>
                     <!-- Math.abs will return whole number value-->
@@ -661,7 +660,7 @@
                     </div>
                 </div>
                 <div class="buttons">
-                    <div><button onclick="vendorEmailUpdateAPI(event)" class="button-save">Save Changes</button></div>
+                    <div><button onclick="vendorEmailUpdateAPI(event)" formmethod="post" class="button-save">Save Changes</button></div>
                     <div><button id="CustomSmptPopupCancel" class="button-cancel">Cancel</button></div>
                 </div>
             </form>
@@ -680,7 +679,7 @@
 
                 <p class="get-smtp-settings" onclick="copySmtpSettings()"> Copy from Custom SMTP for Email channel</p>
             <!-- SMTP settings form feild-->
-            <form id="smtpSettingsForm">
+            <form id="smtpSettingsForm" method="post" onsubmit="return false;">
                 <div class="form-properties">
                     <div class="form__group">
                         <label for="getSenderName1" class="form__label required"> Sender Name </label>
@@ -704,8 +703,8 @@
                             required placeholder="Enter SMTP Username">
                     </div>
                     <div class="form__group">
-                        <label for="getSmtpPassword1" class="form__label required"> SMTP Password </label>
-                        <input type="password" id="getSmtpPassword1" name="password" value="" class="form__field"
+                        <label for="getSmtpPValue" class="form__label required"> SMTP Password </label>
+                        <input type = "password" id = "getSmtpPValue"   name = "password" value="" class="form__field" autocomplete="off"
                             required placeholder="Enter SMTP Password">
                     </div>
                     <!-- Math.abs will return whole number value-->
@@ -727,7 +726,7 @@
                     </div>
                 </div>
                 <div class="buttons">
-                    <div><button onclick="UpdateCustomSmtpSettings(event)" class="button-save">Save Changes</button></div>
+                    <div><button onclick="UpdateCustomSmtpSettings(event)" formmethod="post" class="button-save">Save Changes</button></div>
                     <div><button id="smtpSettingsPopupCancel" class="button-cancel">Cancel</button></div>
                 </div>
             </form>
@@ -746,7 +745,7 @@
             ensure
             things do not break, please check all other dispatches configured to use this Mandrill.</p>
         <!-- CustomSMPT form feild-->
-        <form id="mandrillSubmitForm">
+        <form id="mandrillSubmitForm" onsubmit="return false;">
             <div>
                 <div class="form__group  ">
                     <label for="getMandrillUrl" class="form__label required"> URL </label>
@@ -781,7 +780,7 @@
             ensure
             things do not break, please check all other dispatches configured to use this Pinnacle.</p>
         <!-- CustomSMPT form feild-->
-        <form id="pinnacleSubmitForm">
+        <form id="pinnacleSubmitForm" onsubmit="return false;">
             <div>
                 <div class="form__group  ">
                     <label for="getpinnacleSenderId" class="form__label required">Sender ID  </label>
@@ -826,7 +825,7 @@
             ensure
             things do not break, please check all other dispatches configured to use this VF SMS.</p>
         <!-- CustomSMPT form feild-->
-        <form id="vfsmsSubmitForm">
+        <form id="vfsmsSubmitForm" method="post" onsubmit="return false;">
             <div>
                 <div class="form__group  ">
                     <label for="getvfsmsSenderId" class="form__label required">Sender ID  </label>
@@ -845,8 +844,8 @@
                         required placeholder="Enter SMTP Username">
                 </div>
                 <div class="form__group">
-                    <label for="getvfsmsPassword" class="form__label required"> Password </label>
-                    <input type="password" id="getvfsmsPassword" name="Password" value="" class="form__field"
+                    <label for="getvfsmPValue" class="form__label required"> Password </label>
+                    <input type = "password" id="getvfsmPValue"   name = "Password" autocomplete="off" value="" class="form__field"
                         required placeholder="Enter SMTP Password">
                 </div>
                 <div class="form__group">
@@ -857,7 +856,7 @@
                 </div>
             </div>
             <div class="buttons">
-                <div><button onclick="vendorvfsmsUpdateAPI(event)" class="button-save">Save Changes</button></div>
+                <div><button onclick="vendorvfsmsUpdateAPI(event)" class="button-save" formmethod="post">Save Changes</button></div>
                 <div><button id="vfsmsPopupCancel" class="button-cancel">Cancel</button></div>
             </div>
         </form>
@@ -875,7 +874,7 @@
             <p>You can update the master Custom SMS settings as stored in the central database below. Please make
                 any change carefully as updating these details may impact any other dispatch using this SMS Vendor. To
                 ensure things do not break, please check all other dispatches configured to use this Custom SMS.</p>
-            <form id="smsForm">
+            <form id="smsForm" onsubmit="return false;">
                 <div class="form__group  ">
                     <label for="getSmsurl" class="form__label required"> Custom SMS URL </label>
                     <textarea type="text" id="getSmsurl" name="Url" value="" class="form__field resize"
@@ -901,7 +900,7 @@
             <p>You can update the master MessageBird SMS settings as stored in the central database below. Please make
                 any change carefully as updating these details may impact any other dispatch using this SMS Vendor. To
                 ensure things do not break, please check all other dispatches configured to use this Message Bird.</p>
-            <form id="smsmessagebirdForm">
+            <form id="smsmessagebirdForm" onsubmit="return false;">
                 <div class="form__group  ">
                     <label for="getMessageUrl" class="form__label required"> URL </label>
                     <textarea type="text" id="getMessageUrl" name="Url" value="" class="form__field resize"
@@ -957,7 +956,7 @@
             <p>You can update the master Spark Post settings as stored in the central database below. Please make
                 any change carefully as updating these details may impact any other dispatch using this Email Vendor. To
                 ensure things do not break, please check all other dispatches configured to use this Spark Post.</p>
-            <form id="smsSparkPostForm">
+            <form id="smsSparkPostForm" onsubmit="return false;">
                 <div class="form__group">
                     <label for="getSparkUrl" class="form__label required"> URL </label>
                     <textarea type="text" id="getSparkUrl" name="Url" value="" class="form__field resize"
@@ -1001,7 +1000,7 @@
             </div>
             <p>All error and failures that are not linked to any specific dispatch will be sent as account level super
                 admin notifications.</p>
-            <form id="superAdminform">
+            <form id="superAdminform" onsubmit="return false;">
                 <div class="form__group  ">
                     <label for="admin-notification-multi-email" class="form__label required"> Send Notifications To
                     </label>
@@ -1036,7 +1035,7 @@
                 <br>
                 <span><i class="fas fa-spinner fa-spin"></i> Please wait while we get the details...</span>
             </div>
-            <form id="reportConfigForm">
+            <form id="reportConfigForm" onsubmit="return false;">
                 <label for="send-sms-using" class="form__label">Pre-Fill Question to Slice Data
                 </label>
                 <div class="form__group">
@@ -1142,7 +1141,7 @@
     }
     smtpSettingsCancel.onclick = function(event) {
         event.preventDefault();
-        document.getElementById("getSmtpPassword1").value = "";
+        document.getElementById("getSmtpPValue").value = "";
                 document.getElementById("getSenderName1").value = "";
                 document.getElementById("getEmailAddress1").value = "";
                 document.getElementById("getSmtpServer1").value = "";

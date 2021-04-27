@@ -1,6 +1,5 @@
 ﻿using Amazon.S3.Model;
 using ClosedXML.Excel;
-using Microsoft.VisualBasic.FileIO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -9,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using XM.ID.Net;
@@ -28,6 +28,7 @@ namespace XM.ID.Initiator.Net
         internal string BatchId;
 
         internal bool IsTargetFileUploadDirectoryValid { get; set; }
+        internal bool IsFileSplitted { get; set; }
         internal bool IsConfigFileAvailableAndNotEmpty { get; set; }
         internal bool IsTargetFileAvailableAndNotEmpty { get; set; }
         internal bool IsConfigFileValid { get; set; }
@@ -88,7 +89,7 @@ namespace XM.ID.Initiator.Net
             }
         }
 
-        internal async Task<bool> SplitFileInBatches()
+        internal async Task SplitFileInBatches()
         {
             try
             {
@@ -111,22 +112,28 @@ namespace XM.ID.Initiator.Net
                     if (DataTable.RowEntries.Count > batchSize)
                     {
                         await SplitFile("1", filename, batchSize);
-                        return true;
+                        IsFileSplitted = true;
+                        return;
                     }
                     else
-                        return false;
+                    {
+                        IsFileSplitted = false;
+                        return;
+                    }
                 }
                 else
                 {
                     if (DataTable.RowEntries.Count > batchSize)
                     {
                         await SplitFile(batchNumber.ToString(), filename, batchSize);
-                        return true;
+                        IsFileSplitted = true;
+                        return;
                     }
                     else
                     {
                         BatchId = initiatorRecord.BatchId;
-                        return false;
+                        IsFileSplitted = false;
+                        return;
                     }
                 }
             }
@@ -163,7 +170,15 @@ namespace XM.ID.Initiator.Net
                     csv.AppendLine(header);
                     foreach (var row in batchValues)
                     {
-                        var rowValue = string.Join(",", row.Values);
+                        List<string> tempRow = new List<string>();
+                        foreach(var r in row.Values)
+                        {
+                            if (r.Contains(","))
+                                tempRow.Add("\"" + r + "\"");
+                            else
+                                tempRow.Add(r);
+                        }
+                        var rowValue = string.Join(",", tempRow);
                         csv.AppendLine(rowValue);
                     }
                     PutObjectRequest putObject = new PutObjectRequest
@@ -181,7 +196,15 @@ namespace XM.ID.Initiator.Net
                     csv.AppendLine(header);
                     foreach (var row in batchValues)
                     {
-                        var rowValue = string.Join(",", row.Values);
+                        List<string> tempRow = new List<string>();
+                        foreach (var r in row.Values)
+                        {
+                            if (r.Contains(","))
+                                tempRow.Add("\"" + r + "\"");
+                            else
+                                tempRow.Add(r);
+                        }
+                        var rowValue = string.Join(",", tempRow);
                         csv.AppendLine(rowValue);
                     }
                     putObject = new PutObjectRequest
@@ -561,14 +584,15 @@ namespace XM.ID.Initiator.Net
             {
                 using StreamReader streamReader = new StreamReader(stream);
                 int count = 0;
-                using (TextFieldParser parser = new TextFieldParser(streamReader))
+                while (!streamReader.EndOfStream)
                 {
-                    parser.TextFieldType = FieldType.Delimited;
-                    parser.SetDelimiters(",");
-
-                    while (!parser.EndOfData)
+                    string line = streamReader.ReadLine();
+                    //check for blank rows
+                    if (!string.IsNullOrWhiteSpace(line))
                     {
-                        var cells = parser.ReadFields().ToList();
+                        string[] cells = Regex.Split(line, ",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+                        cells = RemoveQoutes(cells);
+                        //check for rows with all empty values
                         if (cells.Any(x => !string.IsNullOrEmpty(x)))
                         {
                             if (count == 0)
@@ -615,6 +639,25 @@ namespace XM.ID.Initiator.Net
                         RowEntries.Add(new RowEntry(rowValues));
                 }
             }
+        }
+
+        public string[] RemoveQoutes(string[] cells)
+        {
+            string[] newcells = new string[cells.Length];
+            int index = 0;
+            foreach (var cell in cells)
+            {
+                string temp = cell;
+                if (!string.IsNullOrEmpty(temp))
+                {
+                    if (temp.StartsWith("\""))
+                        temp = temp.Substring(1);
+                    if (temp.EndsWith("\""))
+                        temp = temp.Remove(temp.Length - 1);
+                }
+                newcells[index++] = temp;
+            }
+            return newcells;
         }
     }
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -45,6 +46,13 @@ namespace Invitations
             services.AddSingleton<AuthTokenValidation>();
             services.AddSingleton<PayloadValidation>();
             services.AddScoped<EventLogList>();
+            services.AddMvc()
+            .ConfigureApiBehaviorOptions(opt
+                       =>
+                   {
+                       opt.InvalidModelStateResponseFactory =
+                           (context => new BadRequestObjectResult("Bad Request"));
+                   });
 
             if (Configuration.GetValue<bool>("TurnOnBGScheduler"))
             {

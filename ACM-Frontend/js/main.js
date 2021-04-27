@@ -58,7 +58,7 @@ var vfsmsVendor = {
     senderId: "#getvfsmsSenderId",
     endPoint: "#getvfsmsEndPoint",
     getvfsmsUserId : "#getvfsmsUserId",
-    getvfsmsPassword : "#getvfsmsPassword",
+    getvfsmPValue : "#getvfsmPValue",
     vfsmsBatchSize : "#getvfsmsBatchSize"
 };
 
@@ -88,7 +88,7 @@ var customSmtp = {
     email: "#getEmailAddress",
     smtpServer: "#getSmtpServer",
     smtpUsername: "#getSmtpUsername",
-    smtpPassword: "#getSmtpPassword",
+    getSmtpPaValue: "#getSmtpPaValue",
     port: "#getPort",
 };
 
@@ -97,7 +97,7 @@ var customSmtpSettings = {
     email1: "#getEmailAddress1",
     smtpServer1: "#getSmtpServer1",
     smtpUsername1: "#getSmtpUsername1",
-    smtpPassword1: "#getSmtpPassword1",
+    getSmtpPValue: "#getSmtpPValue",
     port1: "#getPort1",
 };
 /**
@@ -149,13 +149,13 @@ var fieldsWithRequiredValidators = [
     "#getEmailAddress",
     "#getSmtpServer",
     "#getSmtpUsername",
-    "#getSmtpPassword",
+    "#getSmtpPaValue",
     "#getPort",
     "#getSenderName1",
     "#getEmailAddress1",
     "#getSmtpServer1",
     "#getSmtpUsername1",
-    "#getSmtpPassword1",
+    "#getSmtpPValue",
     "#getPort1",
     "#getSmsurl",
     "#getMessageUrl",
@@ -179,7 +179,7 @@ var fieldsWithRequiredValidators = [
   "#getpinnacleBatchSize",
   "#getvfsmsSenderId",
   "#getvfsmsUserId",
-  "#getvfsmsPassword",
+  "#getvfsmPValue",
    "#getvfsmsEndPoint",
   "#getvfsmsBatchSize"
 ];
@@ -389,7 +389,7 @@ function getAuthenticationToken(user) {
          
             502: function () {
                 //when no content is avaible in API
-                document.getElementById("show-error").innerHTML = "Unable to connect to the server. Please try after sometime.";
+                document.getElementById("show-error").innerText = "Unable to connect to the server. Please try after sometime.";
            hidespinner();
             } 
         },
@@ -398,29 +398,29 @@ function getAuthenticationToken(user) {
             
           
          if(user.Password === "" && user.Username === "" ){
-                document.getElementById("show-error").innerHTML = 'The Username/Password field is required';
+                document.getElementById("show-error").innerText = 'The Username/Password field is required';
                 hidespinner();
             }
             else if(user.Username === "")
             {
-                document.getElementById("show-error").innerHTML = 'The Username field is required';
+                document.getElementById("show-error").innerText = 'The Username field is required';
                 hidespinner();
             }
             else if(user.Password === ""){
-                document.getElementById("show-error").innerHTML = 'The Password field is required';
+                document.getElementById("show-error").innerText = 'The Password field is required';
                 hidespinner();
             }
             else if(xhr.status === 502){
-                document.getElementById("show-error").innerHTML = 'Unable to connect to the server. Please try after sometime.';
+                document.getElementById("show-error").innerText = 'Unable to connect to the server. Please try after sometime.';
                 hidespinner();
             }
             else if(xhr.status === 404){
-                document.getElementById("show-error").innerHTML = 'Unable to connect to the server. Please try after sometime.';
+                document.getElementById("show-error").innerText = 'Unable to connect to the server. Please try after sometime.';
                 hidespinner();
             }
         var resMsg = JSON.parse(xhr.responseText);
            if(resMsg.isSuccessful === false){
-            document.getElementById("show-error").innerHTML = resMsg.message;
+            document.getElementById("show-error").innerText = resMsg.message;
            hidespinner();
            
             }
@@ -492,14 +492,14 @@ function getDispatcherlist() {
                 document.getElementById("queue-vendor-name-error").style.display =
                     "block";
             } else {
-                document.getElementById("Queue-Vendor-name").innerHTML =
+                document.getElementById("Queue-Vendor-name").innerText =
                     data.queue.queueType;
             }
             if (data.queue.queueConnectionString === "") {
                 document.getElementById("storage-account-error").style.display =
                     "block";
             } else {
-                document.getElementById("Storage-Account").innerHTML =
+                document.getElementById("Storage-Account").innerText =
                     data.queue.queueConnectionString;
             }
             dispatchList = data;
@@ -549,7 +549,7 @@ function getDisptachById(data) {
             // display the error message when the vendor details is not availble
             document.getElementById("icon-block").style.display = "none";
             document.getElementById("configuration-block").style.display = "none";
-            document.getElementById("error-dispatch-name").innerHTML =
+            document.getElementById("error-dispatch-name").innerText =
                 "No vendor available for Email / SMS. Please check the database and try again.";
         },
     };
@@ -735,24 +735,24 @@ function vendorEmailUpdateAPI(event) {
         // set the Custom SMTP value inside the preview div and hidding the all error message
         document.getElementById(
             "setSenderName"
-        ).innerHTML = document.getElementById("getSenderName").value;
+        ).innerText = document.getElementById("getSenderName").value;
         document.getElementById(
             "setEmailAddress"
-        ).innerHTML = document.getElementById("getEmailAddress").value;
+        ).innerText = document.getElementById("getEmailAddress").value;
         document.getElementById(
             "setSmtpServer"
-        ).innerHTML = document.getElementById("getSmtpServer").value;
+        ).innerText = document.getElementById("getSmtpServer").value;
         document.getElementById(
             "setSmtpUsername"
-        ).innerHTML = document.getElementById("getSmtpUsername").value;
-        document.getElementById("setPort").innerHTML = document.getElementById(
+        ).innerText = document.getElementById("getSmtpUsername").value;
+        document.getElementById("setPort").innerText = document.getElementById(
             "getPort"
         ).value;
-        document.getElementById("setEnableSsl").innerHTML = document.getElementById(
+        document.getElementById("setEnableSsl").innerText = document.getElementById(
             "getEnableSsl"
         ).value;
         getElement(".emailEditedValue").style.display = "block";
-        document.getElementById("myBtn").innerHTML = "Edit Details For Custom SMTP";
+        document.getElementById("myBtn").innerText = "Edit Details For Custom SMTP";
         document.getElementById("error-msg").style.display = "none";
         $(function () {
             // created Customer SMTP object details for Post API
@@ -784,6 +784,7 @@ function vendorEmailUpdateAPI(event) {
                 // post Success message
                 if (data) {
                     alert("Vendor details saved successfully.");
+                    $('.get-smtp-settings').show();
                 }
             });
             return false;
@@ -815,12 +816,12 @@ function vendorMandrillUpdateAPI(event) {
         // set the Custom SMTP value inside the preview div and hidding the all error message
         document.getElementById(
             "setMandrillUrl"
-        ).innerHTML = document.getElementById("getMandrillUrl").value;
+        ).innerText = document.getElementById("getMandrillUrl").value;
         document.getElementById(
             "setMandrillApiKey"
-        ).innerHTML = document.getElementById("getMandrillApiKey").value;
+        ).innerText = document.getElementById("getMandrillApiKey").value;
         
-        document.getElementById("myBtn").innerHTML = "Edit Details For Mandrill";
+        document.getElementById("myBtn").innerText = "Edit Details For Mandrill";
         document.getElementById("error-msg").style.display = "none";
         $(function () {
             // created Customer SMTP object details for Post API
@@ -885,16 +886,16 @@ function vendorPinnacleUpdateAPI(event) {
         // set the Pinnacle value inside the preview div and hidding the all error message
         document.getElementById(
             "setpinnacleSenderID"
-        ).innerHTML = document.getElementById("getpinnacleSenderId").value;
+        ).innerText = document.getElementById("getpinnacleSenderId").value;
         document.getElementById(
             "setpinnacleEndPoint"
-        ).innerHTML = document.getElementById("getpinnacleEndPoint").value;
+        ).innerText = document.getElementById("getpinnacleEndPoint").value;
         document.getElementById(
             "setpinnacleApiKey"
-        ).innerHTML = document.getElementById("getpinnacleApiKey").value;
+        ).innerText = document.getElementById("getpinnacleApiKey").value;
         document.getElementById(
             "setpinnacleBatchSize"
-        ).innerHTML = document.getElementById("getpinnacleBatchSize").value;
+        ).innerText = document.getElementById("getpinnacleBatchSize").value;
         
         
         $(function () {
@@ -927,7 +928,7 @@ function vendorPinnacleUpdateAPI(event) {
                 // post Success message
                 if (data) {
                     alert("Vendor details saved successfully.");
-                    document.getElementById("myBtn1").innerHTML = "Edit Details For Pinnacle";
+                    document.getElementById("myBtn1").innerText = "Edit Details For Pinnacle";
                     document.getElementById("error-msg1").style.display = "none";
                     document.querySelector(".pinnacle").style.display = "block";
                 }
@@ -962,19 +963,19 @@ function vendorvfsmsUpdateAPI(event) {
         // set the vfsms value inside the preview div and hidding the all error message
         document.getElementById(
             "setvfsmsSenderID"
-        ).innerHTML = document.getElementById("getvfsmsSenderId").value;
+        ).innerText = document.getElementById("getvfsmsSenderId").value;
         document.getElementById(
             "setvfsmsEndPoint"
-        ).innerHTML = document.getElementById("getvfsmsEndPoint").value;
+        ).innerText = document.getElementById("getvfsmsEndPoint").value;
         document.getElementById(
             "setvfsmsUserId"
-        ).innerHTML = document.getElementById("getvfsmsUserId").value;
+        ).innerText = document.getElementById("getvfsmsUserId").value;
         document.getElementById(
             "setvfsmsPassword"
-        ).innerHTML = document.getElementById("getvfsmsPassword").value;
+        ).innerText = document.getElementById("getvfsmPValue").value;
         document.getElementById(
             "setvfsmsBatchSize"
-        ).innerHTML = document.getElementById("getvfsmsBatchSize").value;
+        ).innerText = document.getElementById("getvfsmsBatchSize").value;
         
         
         $(function () {
@@ -1007,7 +1008,7 @@ function vendorvfsmsUpdateAPI(event) {
                 // post Success message
                 if (data) {
                     alert("Vendor details saved successfully.");
-                    document.getElementById("myBtn1").innerHTML = "Edit Details For VF SMS";
+                    document.getElementById("myBtn1").innerText = "Edit Details For VF SMS";
                     document.getElementById("error-msg1").style.display = "none";
                     document.querySelector(".vfsms").style.display = "block";
                     enableDisableSaveButton();
@@ -1039,21 +1040,21 @@ function venderMessagebird(event) {
     if (!$(".form-error-msg").is(":visible")) {
         document.getElementById(
             "setMessageBird"
-        ).innerHTML = document.getElementById("getMessageUrl").value;
-        document.getElementById("setAccessKey").innerHTML = document.getElementById(
+        ).innerText = document.getElementById("getMessageUrl").value;
+        document.getElementById("setAccessKey").innerText = document.getElementById(
             "getAccessKey"
         ).value;
         document.getElementById(
             "setOriginator"
-        ).innerHTML = document.getElementById("getOriginator").value;
-        document.getElementById("setShortCode").innerHTML = document.getElementById(
+        ).innerText = document.getElementById("getOriginator").value;
+        document.getElementById("setShortCode").innerText = document.getElementById(
             "getShortCode"
         ).value;
-        document.getElementById("setMultiLanguage").innerHTML = 
+        document.getElementById("setMultiLanguage").innerText = 
         $(
             "#getMultiLanguage option:selected"
         ).text();
-        document.getElementById("myBtn1").innerHTML =
+        document.getElementById("myBtn1").innerText =
             "Edit Details For Message Bird";
         getElement(".MessageBird").style.display = "block";
         document.getElementById("error-msg1").style.display = "none";
@@ -1113,23 +1114,23 @@ function vendorSparkPost(event) {
         }
     }
     if (!$(".form-error-msg").is(":visible")) {
-        document.getElementById("setSparkUrl").innerHTML = document.getElementById(
+        document.getElementById("setSparkUrl").innerText = document.getElementById(
             "getSparkUrl"
         ).value;
         document.getElementById(
             "setSparkApiKey"
-        ).innerHTML = document.getElementById("getSparkApiKey").value;
+        ).innerText = document.getElementById("getSparkApiKey").value;
         document.getElementById(
             "setSparkSenderEmail"
-        ).innerHTML = document.getElementById("getSparkSenderEmail").value;
+        ).innerText = document.getElementById("getSparkSenderEmail").value;
         document.getElementById(
             "setSparkSenderName"
-        ).innerHTML = document.getElementById("getSparkSenderName").value;
+        ).innerText = document.getElementById("getSparkSenderName").value;
         document.getElementById(
             "setSparkBatchSize"
-        ).innerHTML = document.getElementById("getSparkBatchSize").value;
+        ).innerText = document.getElementById("getSparkBatchSize").value;
         getElement(".SparkPostValueEdited").style.display = "block";
-        document.getElementById("myBtn").innerHTML = "Edit Details For Spark Post";
+        document.getElementById("myBtn").innerText = "Edit Details For Spark Post";
         document.getElementById("error-msg").style.display = "none";
         $(function () {
             const object = {
@@ -1184,11 +1185,11 @@ function vendorSmsUpdateAPI(event) {
         }
     }
     if (!$(".form-error-msg").is(":visible")) {
-        document.getElementById("setSmsurl").innerHTML = document.getElementById(
+        document.getElementById("setSmsurl").innerText = document.getElementById(
             "getSmsurl"
         ).value;
         getElement(".smsEditedValue").style.display = "block";
-        document.getElementById("myBtn1").innerHTML = "Edit Details For Custom SMS";
+        document.getElementById("myBtn1").innerText = "Edit Details For Custom SMS";
         document.getElementById("error-msg1").style.display = "none";
         $(function () {
             const object = {
@@ -1266,7 +1267,7 @@ function superAdminNotificationUpdateAPI(event) {
             $.ajax(settings).done(function (data) {
                 if (data.AccountNotifications === null || data.AccountNotifications === "") {
                    
-                    document.getElementById("setSuperAdminNotificationData").innerHTML = "Super admin notifications are not set up. Please configure it here.";
+                    document.getElementById("setSuperAdminNotificationData").innerText = "Super admin notifications are not set up. Please configure it here.";
                 }
                 else{
                     var value = document.getElementById("admin-notification-multi-email").value
@@ -1524,11 +1525,11 @@ function getSparkPostData() {
             204: function () {
                 getElement(".emailEditedValue").style.display = "none";
                 getElement(".mandrillPostValueEdited").style.display = "none";
-                document.getElementById("myBtn").innerHTML =
+                document.getElementById("myBtn").innerText =
                     "Add Details For Spark Post";
                 document.getElementById("error-msg").style.display = "block";
 
-                document.getElementById("error-msg").innerHTML =
+                document.getElementById("error-msg").innerText =
                     "Spark Post settings missing. Please add details";
                 enableDisableSaveButton();
             },
@@ -1542,19 +1543,19 @@ function getSparkPostData() {
         if (oResponse) {
             document.getElementById("error-msg").style.display = "none";
             //display the API data in both sparkpost form and sparkpost preview
-            document.getElementById("myBtn").innerHTML =
+            document.getElementById("myBtn").innerText =
                 "Edit Details For Spark Post";
             getVendorByName = oResponse.vendorDetails;
             getElement(".emailEditedValue").style.display = "none";
             getElement(".mandrillPostValueEdited").style.display = "none";
-            document.getElementById("setSparkUrl").innerHTML = getVendorByName.Url;
-            document.getElementById("setSparkApiKey").innerHTML =
+            document.getElementById("setSparkUrl").innerText = getVendorByName.Url;
+            document.getElementById("setSparkApiKey").innerText =
                 getVendorByName.ApiKey;
-            document.getElementById("setSparkSenderEmail").innerHTML =
+            document.getElementById("setSparkSenderEmail").innerText =
                 getVendorByName.SenderEmail;
-            document.getElementById("setSparkSenderName").innerHTML =
+            document.getElementById("setSparkSenderName").innerText =
                 getVendorByName.SenderName;
-            document.getElementById("setSparkBatchSize").innerHTML =
+            document.getElementById("setSparkBatchSize").innerText =
                 getVendorByName.BatchSize;
             document.getElementById("getSparkUrl").value = getVendorByName.Url;
             document.getElementById("getSparkApiKey").value = getVendorByName.ApiKey;
@@ -1585,11 +1586,11 @@ function getMandrillData() {
             204: function () {
                 getElement(".emailEditedValue").style.display = "none";
                 getElement(".SparkPostValueEdited").style.display = "none";
-                document.getElementById("myBtn").innerHTML =
+                document.getElementById("myBtn").innerText =
                     "Add Details For Mandrill";
                 document.getElementById("error-msg").style.display = "block";
 
-                document.getElementById("error-msg").innerHTML =
+                document.getElementById("error-msg").innerText =
                     "Mandrill settings missing. Please add details";
                 enableDisableSaveButton();
             },
@@ -1603,14 +1604,14 @@ function getMandrillData() {
         if (oResponse) {
             document.getElementById("error-msg").style.display = "none";
             //display the API data in both sparkpost form and sparkpost preview
-            document.getElementById("myBtn").innerHTML =
+            document.getElementById("myBtn").innerText =
                 "Edit Details For Mandrill";
             getVendorByName = oResponse.vendorDetails;
             getElement(".emailEditedValue").style.display = "none";
             getElement(".mandrillPostValueEdited").style.display = "block";
             getElement(".SparkPostValueEdited").style.display = "none";
-            document.getElementById("setMandrillUrl").innerHTML = getVendorByName.Url;
-            document.getElementById("setMandrillApiKey").innerHTML =
+            document.getElementById("setMandrillUrl").innerText = getVendorByName.Url;
+            document.getElementById("setMandrillApiKey").innerText =
                 getVendorByName.ApiKey;document.getElementById("getMandrillUrl").value = getVendorByName.Url;
                 document.getElementById("getMandrillApiKey").value =
                     getVendorByName.ApiKey;
@@ -1633,13 +1634,13 @@ function getPinnacleSMSData() {
             204: function () {
                   // When no data present in API this block will excecute
                   getElement(".smsEditedValue").style.display = "none";
-                  document.getElementById("myBtn1").innerHTML =
+                  document.getElementById("myBtn1").innerText =
                       "Add Details For Pinnacle";
                   document.getElementById("error-msg1").style.display = "block";
                   getElement(".MessageBird").style.display = "none";
                   getElement(".pinnacle").style.display = "none";
                   getElement(".vfsms").style.display = "none";
-                  document.getElementById("error-msg1").innerHTML =
+                  document.getElementById("error-msg1").innerText =
                       "Pinnacle settings missing. Please add details";
                   enableDisableSaveButton();
             },
@@ -1653,20 +1654,19 @@ function getPinnacleSMSData() {
         if (oResponse) {
             document.getElementById("error-msg1").style.display = "none";
             //display the API data in both sparkpost form and sparkpost preview
-            document.getElementById("myBtn1").innerHTML =
+            document.getElementById("myBtn1").innerText =
                 "Edit Details For Pinnacle";
             getVendorByName = oResponse.vendorDetails;
             getElement(".MessageBird").style.display = "none";
             getElement(".smsEditedValue").style.display = "none";
             getElement(".vfsms").style.display = "none";
             getElement(".pinnacle").style.display = "block";
-            getElement(".SparkPostValueEdited").style.display = "none";
-            document.getElementById("setpinnacleSenderID").innerHTML = getVendorByName.SenderId;
-            document.getElementById("setpinnacleEndPoint").innerHTML =
+            document.getElementById("setpinnacleSenderID").innerText = getVendorByName.SenderId;
+            document.getElementById("setpinnacleEndPoint").innerText =
                 getVendorByName.EndPoint;
-                document.getElementById("setpinnacleApiKey").innerHTML =
+                document.getElementById("setpinnacleApiKey").innerText =
                 getVendorByName.ApiKey;
-                document.getElementById("setpinnacleBatchSize").innerHTML = getVendorByName.BatchSize;
+                document.getElementById("setpinnacleBatchSize").innerText = getVendorByName.BatchSize;
                 document.getElementById("getpinnacleSenderId").value = getVendorByName.SenderId;
             document.getElementById("getpinnacleEndPoint").value =
                 getVendorByName.EndPoint;
@@ -1694,13 +1694,13 @@ function getvfsSMSData() {
             204: function () {
                   // When no data present in API this block will excecute
                   getElement(".smsEditedValue").style.display = "none";
-                  document.getElementById("myBtn1").innerHTML =
+                  document.getElementById("myBtn1").innerText =
                       "Add Details For VF SMS";
                   document.getElementById("error-msg1").style.display = "block";
                   getElement(".MessageBird").style.display = "none";
                   getElement(".pinnacle").style.display = "none";
                   getElement(".vfsms").style.display = "none";
-                  document.getElementById("error-msg1").innerHTML =
+                  document.getElementById("error-msg1").innerText =
                       "VF SMS settings missing. Please add details";
                   enableDisableSaveButton();
             },
@@ -1714,28 +1714,27 @@ function getvfsSMSData() {
         if (oResponse) {
             document.getElementById("error-msg1").style.display = "none";
             //display the API data in both sparkpost form and sparkpost preview
-            document.getElementById("myBtn1").innerHTML =
+            document.getElementById("myBtn1").innerText =
                 "Edit Details For VF SMS";
             getVendorByName = oResponse.vendorDetails;
             getElement(".MessageBird").style.display = "none";
             getElement(".vfsms").style.display = "block";
             getElement(".pinnacle").style.display = "none";
             getElement(".smsEditedValue").style.display = "none";
-            getElement(".SparkPostValueEdited").style.display = "none";
-            document.getElementById("setvfsmsSenderID").innerHTML = getVendorByName.SenderId;
-            document.getElementById("setvfsmsEndPoint").innerHTML =
+            document.getElementById("setvfsmsSenderID").innerText = getVendorByName.SenderId;
+            document.getElementById("setvfsmsEndPoint").innerText =
                 getVendorByName.EndPoint;
-                document.getElementById("setvfsmsUserId").innerHTML =
+                document.getElementById("setvfsmsUserId").innerText =
                 getVendorByName.UserId;
-                document.getElementById("setvfsmsPassword").innerHTML =
+                document.getElementById("setvfsmsPassword").innerText =
                 "******";
-                document.getElementById("setvfsmsBatchSize").innerHTML = getVendorByName.BatchSize;
+                document.getElementById("setvfsmsBatchSize").innerText = getVendorByName.BatchSize;
                 document.getElementById("getvfsmsSenderId").value = getVendorByName.SenderId;
             document.getElementById("getvfsmsEndPoint").value =
                 getVendorByName.EndPoint;
                 document.getElementById("getvfsmsUserId").value =
                 getVendorByName.UserId;
-                document.getElementById("getvfsmsPassword").value =
+                document.getElementById("getvfsmPValue").value =
                 getVendorByName.Password;
                 document.getElementById("getvfsmsBatchSize").value =
                 getVendorByName.BatchSize;
@@ -1759,12 +1758,12 @@ function getCustomSMSData() {
                 // When no data present in API this block will excecute
                 getElement(".smsEditedValue").style.display = "none";
                 getElement(".pinnacle").style.display = "none";
-                document.getElementById("myBtn1").innerHTML =
+                document.getElementById("myBtn1").innerText =
                     "Add Details For Custom SMS";
                 document.getElementById("error-msg1").style.display = "block";
                 getElement(".MessageBird").style.display = "none";
                 getElement(".vfsms").style.display = "none";
-                document.getElementById("error-msg1").innerHTML =
+                document.getElementById("error-msg1").innerText =
                     "Custom SMS settings missing. Please add details";
                 enableDisableSaveButton();
             },
@@ -1783,11 +1782,11 @@ function getCustomSMSData() {
             getElement(".MessageBird").style.display = "none";
             getElement(".pinnacle").style.display = "none";
             getElement(".vfsms").style.display = "none";
-            document.getElementById("myBtn1").innerHTML =
+            document.getElementById("myBtn1").innerText =
                 "Edit Details For Custom SMS";
             getVendorByName = oResponse.vendorDetails;
             getElement(".smsEditedValue").style.display = "block";
-            document.getElementById("setSmsurl").innerHTML = getVendorByName.Url;
+            document.getElementById("setSmsurl").innerText = getVendorByName.Url;
             document.getElementById("getSmsurl").value = getVendorByName.Url;
             enableDisableSaveButton();
         }
@@ -1808,10 +1807,10 @@ function getCustomSMTPData() {
                 // When no data present in API this block will excecute
                 getElement(".SparkPostValueEdited").style.display = "none";
                 getElement(".mandrillPostValueEdited").style.display = "none";
-                document.getElementById("myBtn").innerHTML =
+                document.getElementById("myBtn").innerText =
                     "Add Details For Custom SMTP";
                 document.getElementById("error-msg").style.display = "block";
-                document.getElementById("error-msg").innerHTML =
+                document.getElementById("error-msg").innerText =
                     "Custom SMTP settings missing. Please add details";
                     document.querySelector(".get-smtp-settings").style.display = "none";
                 enableDisableSaveButton();
@@ -1832,20 +1831,20 @@ function getCustomSMTPData() {
             getElement(".SparkPostValueEdited").style.display = "none";
             document.querySelector(".get-smtp-settings").style.display = "inline-block";
             getElement(".mandrillPostValueEdited").style.display = "none";
-            document.getElementById("myBtn").innerHTML =
+            document.getElementById("myBtn").innerText =
                 "Edit Details For Custom SMTP";
             getVendorByName = oResponse.vendorDetails;
             getElement(".emailEditedValue").style.display = "block";
-            document.getElementById("setSenderName").innerHTML =
+            document.getElementById("setSenderName").innerText =
                 getVendorByName.SenderName;
-            document.getElementById("setEmailAddress").innerHTML =
+            document.getElementById("setEmailAddress").innerText =
                 getVendorByName.SenderAddress;
-            document.getElementById("setSmtpServer").innerHTML =
+            document.getElementById("setSmtpServer").innerText =
                 getVendorByName.SmtpServer;
-            document.getElementById("setSmtpUsername").innerHTML =
+            document.getElementById("setSmtpUsername").innerText =
                 getVendorByName.SmtpUsername;
-            document.getElementById("setPort").innerHTML = getVendorByName.Port;
-            document.getElementById("setEnableSsl").innerHTML = getVendorByName.SSL;
+            document.getElementById("setPort").innerText = getVendorByName.Port;
+            document.getElementById("setEnableSsl").innerText = getVendorByName.SSL;
             document.getElementById("getSenderName").value =
                 getVendorByName.SenderName;
             document.getElementById("getEmailAddress").value =
@@ -1854,7 +1853,7 @@ function getCustomSMTPData() {
                 getVendorByName.SmtpServer;
             document.getElementById("getSmtpUsername").value =
                 getVendorByName.SmtpUsername;
-            document.getElementById("getSmtpPassword").value =
+            document.getElementById("getSmtpPaValue").value =
                 getVendorByName.SmtpPassword;
             document.getElementById("getPort").value = getVendorByName.Port;
             document.getElementById("getEnableSsl").value = getVendorByName.SSL;
@@ -1879,10 +1878,10 @@ function getMessageBirdData() {
                 getElement(".smsEditedValue").style.display = "none";
                 getElement(".pinnacle").style.display = "none";
                 getElement(".vfsms").style.display = "none";
-                document.getElementById("myBtn1").innerHTML =
+                document.getElementById("myBtn1").innerText =
                     "Add Details For Message Bird";
                 document.getElementById("error-msg1").style.display = "block";
-                document.getElementById("error-msg1").innerHTML =
+                document.getElementById("error-msg1").innerText =
                     "Message Bird settings missing. Please add details";
                 enableDisableSaveButton();
             },
@@ -1901,16 +1900,16 @@ function getMessageBirdData() {
             getElement(".smsEditedValue").style.display = "none";
             getElement(".pinnacle").style.display = "none";
             getElement(".vfsms").style.display = "none";
-            document.getElementById("myBtn1").innerHTML =
+            document.getElementById("myBtn1").innerText =
                 "Edit Details For Message Bird";
-            document.getElementById("setMessageBird").innerHTML = getVendorByName.Url;
-            document.getElementById("setAccessKey").innerHTML =
+            document.getElementById("setMessageBird").innerText = getVendorByName.Url;
+            document.getElementById("setAccessKey").innerText =
                 getVendorByName.AccessKey;
-            document.getElementById("setOriginator").innerHTML =
+            document.getElementById("setOriginator").innerText =
                 getVendorByName.Originator;
-            document.getElementById("setShortCode").innerHTML =
+            document.getElementById("setShortCode").innerText =
                 getVendorByName.ShortCode;
-                document.getElementById("setMultiLanguage").innerHTML = getVendorByName.DataCoding;
+                document.getElementById("setMultiLanguage").innerText = getVendorByName.DataCoding;
             document.getElementById("getMessageUrl").value = getVendorByName.Url;
             document.getElementById("getAccessKey").value = getVendorByName.AccessKey;
             document.getElementById("getOriginator").value =
@@ -1958,7 +1957,7 @@ function getSuperAdminNotificationData() {
     };
     $.ajax(settings).done(function (oResponse) {
         if (oResponse.AccountNotifications === null || oResponse.AccountNotifications === "" ) {
-         document.getElementById("setSuperAdminNotificationData").innerHTML = "Super admin notifications are not set up. Please configure it here.";
+         document.getElementById("setSuperAdminNotificationData").innerText = "Super admin notifications are not set up. Please configure it here.";
         
          document.getElementById("admin-notification-multi-email").value = "";
         }
@@ -1973,7 +1972,7 @@ function getSuperAdminNotificationData() {
 
 function addValueSuperAdminPreview(value){
     var res = value.replace(/;/g, ", ");
-    document.getElementById("setSuperAdminNotificationData").innerHTML = "Super admin notifications will be sent to " + res;
+    document.getElementById("setSuperAdminNotificationData").innerText = "Super admin notifications will be sent to " + res;
 }
 
 //remove Token
@@ -2849,7 +2848,7 @@ function getReportDetails(){
                 document.getElementById("f-notification").disabled = false;
                 document.getElementById("reportEmail").disabled = false;
                 document.getElementById('getAdminNotificationData').style.pointerEvents = 'auto';
-                document.getElementById("getSmtpPassword1").value = getSmtpSettings.password;
+                document.getElementById("getSmtpPValue").value = getSmtpSettings.password;
                 document.getElementById("getSenderName1").value = getSmtpSettings.senderName;
                 document.getElementById("getEmailAddress1").value = getSmtpSettings.senderEmailAddress;
                 document.getElementById("getSmtpServer1").value =
@@ -2891,7 +2890,7 @@ function getReportDetails(){
             getSmtpSettings = oResponse.vendorDetails;
             
             
-            document.getElementById("getSmtpPassword1").value = getSmtpSettings.SmtpPassword;
+            document.getElementById("getSmtpPValue").value = getSmtpSettings.SmtpPassword;
             document.getElementById("getSenderName1").value = getSmtpSettings.SenderName;
             document.getElementById("getEmailAddress1").value = getSmtpSettings.SenderAddress;
             document.getElementById("getSmtpServer1").value =

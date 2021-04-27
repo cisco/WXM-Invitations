@@ -952,7 +952,7 @@ namespace XM.ID.Invitations.Net
                 return await _mergedData.CountDocumentsAsync(x => x.CreatedAt > filter.afterdate &&
                                                                  x.CreatedAt < filter.beforedate);
             }
-            catch
+            catch (Exception e)
             {
                 return 0;
             }

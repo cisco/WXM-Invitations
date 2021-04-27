@@ -43,6 +43,7 @@ namespace Invitations.Controllers
                 if (request == null)
                     return BadRequest("Bad Request");
 
+                Util.CleanObject(request);
                 // Fetch account configuration to be used through the whole request.
                 AccountConfiguration accConfiguration = GetAccountConfiguration().Result;
                 if (accConfiguration == null)
@@ -155,8 +156,10 @@ namespace Invitations.Controllers
             ActivityFilter filterObject)
         {
             //{"BatchId":"","DispatchId":"","Token":"","Created":"","Target":""} request format
+            CultureInfo provider = CultureInfo.InvariantCulture;
             try
             {
+                Util.CleanObject(filterObject);
                 // Validate Auth token(Basic or Bearer) and reject if fail.
                 if (!await AuthTokenValidation.ValidateBearerToken(authToken))
                 {
@@ -170,6 +173,15 @@ namespace Invitations.Controllers
                     string.IsNullOrWhiteSpace(filterObject.Created))
                     return BadRequest("EventLog filters are empty.");
 
+                if (!string.IsNullOrWhiteSpace(filterObject.FromDate) 
+                    || !string.IsNullOrWhiteSpace(filterObject.ToDate))
+                {
+                    if (!DateTime.TryParseExact(filterObject.FromDate, "dd/MM/yyyy", provider, DateTimeStyles.None,
+                out DateTime fromdate) || !DateTime.TryParseExact(filterObject.ToDate,
+                 "dd/MM/yyyy", provider, DateTimeStyles.None, out DateTime todate))
+                        throw new Exception("Date format was not correct. Use (dd/MM/yyyy) format for date.");
+                }
+                
                 var response = await ViaMongoDB.GetActivityDocuments(filterObject);
                 return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status200OK, response);
             }
@@ -227,6 +239,7 @@ namespace Invitations.Controllers
             //{"afterdate":"","beforedate":""} request format
             try
             {
+                Util.CleanObject(InputFilter);
                 //Validate Auth token(Basic or Bearer) and reject if fail.
                 if (!await AuthTokenValidation.ValidateBearerToken(authToken))
                 {
@@ -309,7 +322,7 @@ namespace Invitations.Controllers
                         var mail = new System.Net.Mail.MailAddress(email);
                         return true;
                     }
-                    catch
+                    catch (Exception e)
                     {
                         return false;
                     }

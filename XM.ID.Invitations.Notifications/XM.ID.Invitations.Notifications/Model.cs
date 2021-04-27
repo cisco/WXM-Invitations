@@ -40,7 +40,7 @@ namespace InvitationNotification
         public string Login { get; set; }
 
         /// <summary>
-        /// Password to send email
+        /// SecretKey to send email
         /// </summary>
         public string Password { get; set; }
 

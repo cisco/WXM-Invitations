@@ -248,7 +248,7 @@ namespace XM.ID.Net
         [Required]
         public string Username { get; set; }
         /// <summary>
-        /// Password of the WXM User
+        /// SecretKey of the WXM User
         /// </summary>
         [Required]
         public string Password { get; set; }
@@ -975,7 +975,7 @@ namespace XM.ID.Net
         public string Login { get; set; }
 
         /// <summary>
-        /// Password to send email
+        /// SecretKey to send email
         /// </summary>
         public string Password { get; set; }
 

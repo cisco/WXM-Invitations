@@ -38,6 +38,7 @@ namespace XM.ID.Invitations.Net
             ACMLoginResponse response = new ACMLoginResponse();
             try
             {
+                Util.CleanObject(request);
                 BearerToken bearerToken = await WXMService.GetLoginToken(request.Username, request.Password);
                 if (bearerToken == default || !(await IsUserAdminValid(bearerToken.ManagedBy)))
                 {
@@ -264,6 +265,7 @@ namespace XM.ID.Invitations.Net
             var result = new ACMGenericResult<DispatchChannel>();
             try
             {
+                Util.CleanObject(dispatchChannel);
                 AccountConfiguration accountConfiguration = await ViaMongoDB.GetAccountConfiguration();
                 if (accountConfiguration.DispatchChannels == null)
                     accountConfiguration.DispatchChannels = new List<DispatchChannel> { dispatchChannel };
@@ -441,6 +443,7 @@ namespace XM.ID.Invitations.Net
             CultureInfo provider = CultureInfo.InvariantCulture;
             try
             {
+                Util.CleanObject(filterObject);
                 if (!string.IsNullOrEmpty(filterObject.UUID) && string.IsNullOrEmpty(filterObject.Token))
                 {
                     if (!DateTime.TryParseExact(filterObject.FromDate, "dd/MM/yyyy", provider, DateTimeStyles.None,
@@ -672,6 +675,7 @@ namespace XM.ID.Invitations.Net
             var result = new ACMGenericResult<Vendor>();
             try
             {
+                Util.CleanObject(newVendor);
                 AccountConfiguration accountConfiguration = await ViaMongoDB.GetAccountConfiguration();
                 if (accountConfiguration.Vendors == null)
                     accountConfiguration.Vendors = new List<Vendor> { newVendor };
@@ -747,6 +751,7 @@ namespace XM.ID.Invitations.Net
             var result = new ACMGenericResult<Dictionary<string, string>>();
             try
             {
+                Util.CleanObject(extendedProperties);
                 result.StatusCode = 200;
                 if (!extendedProperties.ContainsKey("CheckCleanData"))
                     extendedProperties.Add("CheckCleanData", "true");

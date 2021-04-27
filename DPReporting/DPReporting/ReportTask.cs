@@ -82,9 +82,10 @@ namespace DPReporting
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 log.logMessage += "StartDate needs to be in this format- yyyy-MM-ddTHH:mm:ss. needs to be a valid startdate";
+                log.logMessage += $"Error in report task {ex.Message}    {ex.StackTrace}";
                 log.AddLogsToFile(DateTime.UtcNow);
                 return;
             }
@@ -131,7 +132,7 @@ namespace DPReporting
                     CheckResponsesCapturedForLastHours = ResponsesCheck
                 };
             }
-            catch
+            catch (Exception ex)
             {
                 schedule = null;
                 dataupload = null;
@@ -162,7 +163,7 @@ namespace DPReporting
                     Server = Configuration["CustomeMailServer:Server"],
                 };
             }
-            catch
+            catch (Exception ex)
             {
                 smtpServer = null;
             }
@@ -194,8 +195,6 @@ namespace DPReporting
                         var mail = new System.Net.Mail.MailAddress(email);
                         return true;
                     }
-                    catch
-                    {
                         return false;
                     }
                 }
