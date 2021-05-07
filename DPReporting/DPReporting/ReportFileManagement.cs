@@ -17,7 +17,7 @@ namespace DPReporting
             log = applog;
         }
 
-        public string SaveReportFile(byte[] e, DateTime afterdate, DateTime beforedate)
+        public string SaveReportFile(byte[] e, DateTime afterdate, DateTime beforedate, int timeoffset)
         {
             if (e == null)
                 return null;
@@ -37,7 +37,7 @@ namespace DPReporting
                     path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "report");
                 }
 
-                var fileName = $"{"DPReport-"}{afterdate.ToString("yyyyMMdd")}{"-"}{beforedate.ToString("yyyyMMdd")}{"at"}{DateTime.UtcNow.ToString("yyyyMMddHHmmss")}.xlsx";
+                var fileName = $"{"DPReport-"}{afterdate.ToString("yyyyMMdd")}{"-"}{beforedate.ToString("yyyyMMdd")}{"at"}{DateTime.UtcNow.AddMinutes(timeoffset).ToString("yyyyMMddHHmmss")}.xlsx";
 
                 string fullFilepath = Path.Combine(path, fileName);
 

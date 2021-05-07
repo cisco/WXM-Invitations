@@ -529,18 +529,18 @@
             </div>
             <div id="content03">
                 <div class="heading">
-                    <!-- <div class="report-config" onclick="openReportConfig(event)">
+                     <div class="report-config" onclick="openReportConfig(event)">
                         <i class="fas fa-cogs"></i> Configure Data Slices In Report
-                    </div> -->
+                    </div> 
                     <h1>Request a Report</h1>
                     
                 </div>
 
-                <p>You can request a operations metrics report to be generated and sent via email as an attachment. Reports can be generated for up to last 90 days. 
-                <!-- <p><span id="getDataSliceNumber"></span> additional questions have been added for data slices. </p> -->
+                <p>You can request an operations metric report to view data slices or a detailed log for invitations processed. Reports will be sent via email and reports can be generated for up to the last 90 days. 
+                <p><span id="getDataSliceNumber"></span> Additional questions have been configured for data slices in the operational metric report. </p>
                 </p>
                 <form id="reportForm" onsubmit="return false;">
-                    <!-- <div class="reportConfigCheckbox">
+                    <div class="reportConfigCheckbox">
                         <div>
                             <input type="radio" id="operationMetrics" class="radio1" checked="true"  value="Operations Metrics Report">
                             <label for="operationMetrics">Operations Metrics Report</label><br>
@@ -550,7 +550,7 @@
                             <label for="detailedLog">Detailed Logs</label><br>
                         </div>
                          <span class="info"></span>
-                    </div> -->
+                    </div>
                     <div class="datepickerGroup">
                         <div class="form__group">
                             <span  class="iconFromReport"> <i class="far from-calendar-icon fa-calendar-alt"></i></span>
@@ -571,7 +571,7 @@
                     <div class="form__group">
                         <label for="reportEmail" class="form__label"> Send Report To
                         </label>
-                        <textarea type="text" name="Email" id="reportEmail" class="form__field resize" placeholder="Enter the Email Id"></textarea>
+                        <textarea type="text" name="Email" id="reportEmail" class="form__field resize" placeholder="Enter the Email ID"></textarea>
                         <span class="info">You can add multiple email IDs seprated by “;”</span>
                     </div>
                 <div>
@@ -1069,10 +1069,8 @@
             <div class="heading">
                 <h1>Report Is Being Generated</h1>
             </div>
-            <p>Your report is being generated and will be sent as an attachment via
-                email to the recipients listed by you.</p>
-            <p>This may take up to 15 mins. Please ensure your custom SMTP settings
-                    are updated in case the reports are not delivered</p>
+            <p>Your report is being generated and will be sent via email to the recipients listed by you.</p>
+            <p>This may take 15 mins or more depending on the data. Please ensure your custom SMTP settings are updated in case the reports are not delivered.</p>
            <br>
                 <!-- Save and Cancel button -->
                 <div class="buttons">

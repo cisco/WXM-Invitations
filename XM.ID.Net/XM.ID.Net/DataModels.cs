@@ -57,6 +57,43 @@ namespace XM.ID.Net
         /// the Invitation Delivery Feature
         /// </summary>
         public Dictionary<string, string> ExtendedProperties { get; set; }
+        /// <summary>
+        /// Questions configured for splits in reports
+        /// </summary>
+        public List<PrefillSlicing> PrefillsForSlices { get; set; }
+    }
+
+    /// <summary>
+    /// Configured Prefill for data slicing in reports
+    /// </summary>
+    [BsonIgnoreExtraElements]
+    public class PrefillSlicing
+    {
+        /// <summary>
+        /// Unique question identifier
+        /// </summary>
+        [Required]
+        public string Id { get; set; }
+        /// <summary>
+        /// question note
+        /// </summary>
+        [Required]
+        public string Note { get; set; }
+        /// <summary>
+        /// Type of questions
+        /// </summary>
+        [Required]
+        public string DisplayType { get; set; }
+        /// <summary>
+        /// Question text
+        /// </summary>
+        [Required]
+        public string Text { get; set; }
+        /// <summary>
+        /// Options configured
+        /// </summary>
+        [Required]
+        public List<string> MultiSelect { get; set; }
     }
 
     /// <summary>
@@ -895,6 +932,8 @@ namespace XM.ID.Net
         public FilterBy Filter { get; set; }
         public bool IsLocked { get; set; }
         public int TimeOffSet { get; set; }
+        public bool OnlyLogs { get; set; }
+        //public bool IsMerging { get; set; }
     }
 
     public class WXMPartnerMerged

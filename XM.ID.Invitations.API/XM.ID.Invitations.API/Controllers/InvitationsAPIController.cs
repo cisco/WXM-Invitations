@@ -232,9 +232,9 @@ namespace Invitations.Controllers
         }
 
         [HttpPost]
-        [Route("MetricsReport")]
+        [Route("MetricsReport/{OnlyLogs}")]
         public async Task<IActionResult> GetDpReport([FromHeader(Name = "Authorization")] string authToken,
-            ACMInputFilter InputFilter)
+            ACMInputFilter InputFilter, bool OnlyLogs = false)
         {
             //{"afterdate":"","beforedate":""} request format
             try
@@ -264,7 +264,7 @@ namespace Invitations.Controllers
                 try
                 {
                     string offset = InvitationsMemoryCache.GetInstance().GetFromMemoryCache(authToken.Split(' ')[1]);
-                    
+
                     //conversion to UTC
                     if (!string.IsNullOrEmpty(offset))
                     {
@@ -299,6 +299,9 @@ namespace Invitations.Controllers
                     return BadRequest("Entered date range is too long. Reports can be downloaded for 90 days of date range only.");
 
                 AccountConfiguration a = await ViaMongoDB.GetAccountConfiguration();
+
+                if (a.CustomSMTPSetting == null)
+                    return BadRequest("No smtp details configured");
 
                 //check to see if emails are configured
                 string Emails = null;
@@ -342,12 +345,13 @@ namespace Invitations.Controllers
 
                 OnDemandReportModel OnDemand = await ViaMongoDB.GetOnDemandModel();
 
-                if ((OnDemand != null && OnDemand.IsLocked == false) || OnDemand == null)
+                if ((OnDemand != null && OnDemand.IsLocked == false /*&& OnDemand.IsMerging == false*/) || OnDemand == null)
                 {
                     if (OnDemand == null)
                         OnDemand = new OnDemandReportModel();
 
                     OnDemand.TimeOffSet = TimeZoneOffset;
+                    OnDemand.OnlyLogs = OnlyLogs;
 
                     var response = await ViaMongoDB.LockOnDemand(filter, OnDemand);
 
@@ -365,6 +369,95 @@ namespace Invitations.Controllers
                     return BadRequest("A report is being generated right now and some setting couldn't be retrieved at this time. Please try after some time. ");
                 }
                 
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("exception: ", ex.Message);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet]
+        [Route("GetPrefillSlices")]
+        public async Task<IActionResult> GetQuestionsForAnalytics([FromHeader(Name = "Authorization")] string authToken)
+        {
+            try
+            {
+                //Validate Auth token(Basic or Bearer) and reject if fail.
+                if (!await AuthTokenValidation.ValidateBearerToken(authToken))
+                {
+                    return Unauthorized(SharedSettings.AuthorizationDenied);
+                }
+
+                List<PrefillSlicing> prefills = (await ViaMongoDB.GetAccountConfiguration())?.PrefillsForSlices;
+
+                if (prefills != null)
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status200OK, prefills);
+                else
+                    return BadRequest("No prefill slices configured");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("exception: ", ex.Message);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet]
+        [Route("GetQualifiedPrefills")]
+        public async Task<IActionResult> GetQualifiedPrefills([FromHeader(Name = "Authorization")] string authToken)
+        {
+            try
+            {
+                //Validate Auth token(Basic or Bearer) and reject if fail.
+                if (!await AuthTokenValidation.ValidateBearerToken(authToken))
+                {
+                    return Unauthorized(SharedSettings.AuthorizationDenied);
+                }
+
+                HTTPWrapper hTTPWrapper = new HTTPWrapper();
+
+                string q = InvitationsMemoryCache.GetInstance().GetActiveQuestionsFromMemoryCache(authToken, hTTPWrapper);
+
+                if (!string.IsNullOrEmpty(q))
+                {
+                    List<Question> Questions = JsonConvert.DeserializeObject<List<Question>>(q);
+
+                    var qualified = Questions.Where(x => (x.StaffFill || x.ApiFill) && x.DisplayType?.ToLower() == "select" && x.MultiSelect?.Count() > 0);
+
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status200OK, qualified);
+                }
+                else
+                {
+                    return BadRequest("Unable to fetch questions from cache. Logout and login. If problem persists contact admin");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("exception: ", ex.Message);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost]
+        [Route("SetPrefillSlices")]
+        public async Task<IActionResult> SetQuestionsForAnalytics([FromHeader(Name = "Authorization")] string authToken,
+            List<PrefillSlicing> Questions)
+        {
+            try
+            {
+                //Validate Auth token(Basic or Bearer) and reject if fail.
+                if (!await AuthTokenValidation.ValidateBearerToken(authToken))
+                {
+                    return Unauthorized(SharedSettings.AuthorizationDenied);
+                }
+
+                var prefills = (await ViaMongoDB.UpdateAccountConfiguration_PrefillSlices(Questions))?.PrefillsForSlices;
+
+                if (prefills != null)
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status200OK, prefills);
+                else
+                    return BadRequest("Unable to set prefill slices");
             }
             catch (Exception ex)
             {

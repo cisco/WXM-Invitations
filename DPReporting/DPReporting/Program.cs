@@ -34,16 +34,15 @@ namespace DPReporting
 
             log.logMessage = $" {DateTime.UtcNow.ToString()}    Process started";
 
-            ReportTask k = new ReportTask(configuration, log);
-            DataUpload d = new DataUpload(configuration, log);
+            ViaMongoDB via = new ViaMongoDB(configuration);
+
+            ReportTask k = new ReportTask(configuration, log, via);
 
             Console.WriteLine("keep an eye on log files generated in case process fails or to keep track of reporting");
 
             if (SharedSettings.BASE_URL == null)
                 SharedSettings.BASE_URL = configuration["WXM_BASE_URL"];
 
-            await d.DataUploadTask();
-            
             await k.ReportSendingTask();
         }
     }

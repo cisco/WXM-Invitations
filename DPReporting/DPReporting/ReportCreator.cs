@@ -1,15 +1,12 @@
 ﻿using Microsoft.Extensions.Configuration;
-//using models;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using OfficeOpenXml.Table.PivotTable;
 using FluentDateTime;
 using XM.ID.Net;
 using XM.ID.Invitations.Net;
@@ -30,14 +27,12 @@ namespace DPReporting
         private readonly List<ContentTemplate> templates;
         readonly HTTPWrapper hTTPWrapper;
 
-        Regex NumberTypeRegEx = new Regex(@"^(?i)metric(?i)|^(?i)scale(?i)$|^(?i)slider(?i)$|(-\d)$|^(?i)number(?i)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-        public ReportCreator(IConfigurationRoot configuration, ApplicationLog applog, string WXMBearer)
+        public ReportCreator(IConfigurationRoot configuration, ApplicationLog applog, string WXMBearer, ViaMongoDB v)
         {
             Configuration = configuration;
             log = applog;
 
-            via = new ViaMongoDB((IConfiguration)configuration);
+            via = v;
 
             WXM_BASE_URL = Configuration["WXM_BASE_URL"];
 
@@ -64,7 +59,7 @@ namespace DPReporting
                 templates = JsonConvert.DeserializeObject<List<ContentTemplate>>(t);
         }
 
-        public async Task<Tuple<byte[], bool>> GetOperationMetricsReport(FilterBy filter)
+        public async Task<Tuple<byte[], bool>> GetOperationMetricsReport(FilterBy filter, bool Logs = false, int skiplogs = 0, int limitlogs = 0)
         {
             if (filter == null)
                 return null;
@@ -75,105 +70,900 @@ namespace DPReporting
                     return null;
 
                 AccountConfiguration a = await via.GetAccountConfiguration();
-                List<string> Questionnaires = await via.GetQuestionnairesUsed();
 
                 int TimeZoneOffset = (int)(profile.TimeZoneOffset == null ? settings.TimeZoneOffset : profile.TimeZoneOffset);
-                
+
                 string UTCTZD = TimeZoneOffset >= 0 ? "UTC+" : "UTC-";
-                UTCTZD = UTCTZD + Math.Abs(Convert.ToInt32(TimeZoneOffset/60)).ToString() + ":" + Math.Abs(TimeZoneOffset%60).ToString();
+                UTCTZD = UTCTZD + Math.Abs(Convert.ToInt32(TimeZoneOffset / 60)).ToString() + ":" + Math.Abs(TimeZoneOffset % 60).ToString();
+
+                var package = new ExcelPackage();
+
+                if (Logs)
+                {
+                    int row = 0;
+
+                    var sheet = package.Workbook.Worksheets.Add("Detailed Log");
+
+                    sheet.Cells[1, 1].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
+                    sheet.Cells[1, 1].Style.Font.Bold = true;
+
+                    sheet.Cells[2, 1].Value = "DeliveryWorkFlowId";
+                    sheet.Cells[2, 1].Style.Font.Bold = true;
+                    sheet.Cells[2, 2].Value = "TimeStamp";
+                    sheet.Cells[2, 2].Style.Font.Bold = true;
+                    sheet.Cells[2, 3].Value = "Questionnaire";
+                    sheet.Cells[2, 3].Style.Font.Bold = true;
+                    sheet.Cells[2, 4].Value = "Channel";
+                    sheet.Cells[2, 4].Style.Font.Bold = true;
+                    sheet.Cells[2, 5].Value = "Action";
+                    sheet.Cells[2, 5].Style.Font.Bold = true;
+                    sheet.Cells[2, 5].AddComment("Possible values for action: \r\n" +
+                                                  "Unsubscribe- User has clicked on unsubscribe \r\n" +
+                                                  "Unsubscribed- User has already unsubscribed from getting survey invites \r\n" +
+                                                  "Bounced- User did not receive invite as it was bounced \r\n" +
+                                                  "Exception- User did not receive invite due to an error \r\n" +
+                                                  "Displayed- User clicked on the survey link and it was displayed \r\n" +
+                                                  "Sent- Invite was sent to the user \r\n" +
+                                                  "Throttled- User did not receive invite due to the throttling logic \r\n" +
+                                                  "Answered- User answered the survey \r\n" +
+                                                  "Requested- Token creation has been requested \r\n" +
+                                                  "Rejected- Token creation has been rejected \r\n" +
+                                                  "Tokencreated- Survey token was created for the user to answer the survey \r\n" +
+                                                  "Error- User did not receive invite due to an error \r\n" +
+                                                  "Supressed- User did not receive invite as it was supressed \r\n" +
+                                                  "DispatchSuccessful- Invite was dispatched successfully to the user \r\n" +
+                                                  "DispatchUnsuccessful- Invite was not dispatched to the user due to some error", "WXM Team");
+                    sheet.Cells[2, 5].Comment.AutoFit = true;
+                    sheet.Cells[2, 6].Value = "Message";
+                    sheet.Cells[2, 6].Style.Font.Bold = true;
+                    sheet.Cells[2, 7].Value = "DispatchID";
+                    sheet.Cells[2, 7].Style.Font.Bold = true;
+                    sheet.Cells[2, 8].Value = "TargetHashed";
+                    sheet.Cells[2, 8].Style.Font.Bold = true;
+                    sheet.Cells[2, 9].Value = "Message Sequence";
+                    sheet.Cells[2, 9].Style.Font.Bold = true;
+                    sheet.Cells[2, 10].Value = "Message template";
+                    sheet.Cells[2, 10].Style.Font.Bold = true;
+                    sheet.Cells[2, 11].Value = "Token ID";
+                    sheet.Cells[2, 11].Style.Font.Bold = true;
+
+                    FormatHeader(sheet.Cells["A2:K2"], 3);
+
+                    row = 3;
+
+                    List<WXMPartnerMerged> MergedData = await via.GetMergedDataFromDb(filter, skiplogs, limitlogs);
+
+                    if (MergedData != null)
+                    {
+                        var Result = CreateDetailedLogs(sheet, MergedData, filter, a, row);
+
+                        sheet = Result.Item1;
+
+                        if (sheet == null)
+                            return new Tuple<byte[], bool>(null, true);
+
+                        return new Tuple<byte[], bool>(package.GetAsByteArray(), true);
+                    }
+                    else
+                    {
+                        return new Tuple<byte[], bool>(null, true);
+                    }
+                }
+
+                List<RequestInitiatorRecords> BatchIdToFileName = await via.GetRequestInitiatorRecords();
+
+                List<AggregatedSplits> AggregdateData = await AggregateDataForReports(filter, BatchIdToFileName, a);
 
                 Question ZoneQuestion = questions.Where(x => x.QuestionTags.Contains("cc_zone"))?.FirstOrDefault();
                 Question TouchPointQuestion = questions.Where(x => x.QuestionTags.Contains("cc_touchpoint"))?.FirstOrDefault();
                 Question LocationQuestion = questions.Where(x => x.QuestionTags.Contains("cc_location"))?.FirstOrDefault();
 
-                List<WXMPartnerMerged> MergedData = await via.GetMergedDataFromDb(filter);
+                if (AggregdateData.Where(x => x.DisplayName == "Total")?.FirstOrDefault()?.SentCount == 0)
+                    return new Tuple<byte[], bool>(CreateMetricsReport(AggregdateData, filter, a, ZoneQuestion, TouchPointQuestion, LocationQuestion), false);
 
-                if (MergedData?.Count() == 0)
+                return new Tuple<byte[], bool>(CreateMetricsReport(AggregdateData, filter, a, ZoneQuestion, TouchPointQuestion, LocationQuestion), true);
+            }
+            catch (Exception ex)
+            {
+                log.logMessage += $"Error generating the excel report {ex.Message}    {ex.StackTrace}";
+                return null;
+            }
+        }
+
+        async Task<List<AggregatedSplits>> AggregateDataForReports(FilterBy filter, List<RequestInitiatorRecords> BatchIdToFileName,  AccountConfiguration a)
+        {
+            if (filter == null || BatchIdToFileName == null || a == null)
+                return null;
+
+            try
+            {
+                long total = await via.GetMergedDataCount(filter);
+
+                int TimeZoneOffset = (int)(profile.TimeZoneOffset == null ? settings.TimeZoneOffset : profile.TimeZoneOffset);
+                string UTCTZD = TimeZoneOffset >= 0 ? "UTC+" : "UTC-";
+                UTCTZD = UTCTZD + Math.Abs(Convert.ToInt32(TimeZoneOffset / 60)).ToString() + ":" + Math.Abs(TimeZoneOffset % 60).ToString();
+
+                List<PrefillSlicing> QuestionsForSplit = a.PrefillsForSlices;
+
+                AggregatedSplits TotalSplit = new AggregatedSplits();
+                TotalSplit.id = "Total";
+                List<AggregatedSplits> FileMappedSplits = new List<AggregatedSplits>();
+                List<AggregatedSplits> PrefillSplits = new List<AggregatedSplits>();
+                List<List<AggregatedSplits>> ChannelSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> QuestionnaireSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> MonthSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> DispatchSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> MessageTemplateSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> SequenceSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> ZoneSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> TouchpointSplits = new List<List<AggregatedSplits>>();
+                List<List<AggregatedSplits>> LocationSplits = new List<List<AggregatedSplits>>();
+
+                DateTime StartDate = filter.afterdate.AddMinutes(TimeZoneOffset);
+                DateTime EndDate = filter.beforedate.AddMinutes(TimeZoneOffset);
+
+                Dictionary<string, string> ValidMonthLimits = new Dictionary<string, string>();
+
+                if (StartDate.Month != EndDate.Month)
+                {
+                    for (int i = StartDate.Month; i <= EndDate.Month; i++)
+                    {
+                        if (i == StartDate.Month && StartDate.Day != 1)
+                        {
+                            ValidMonthLimits.Add(new DateTime(2015, i, 1).ToString("MMMM"),
+                                new DateTime(2015, i, 1).ToString("MMMM") + " (From " + AddOrdinal(StartDate.Day) + " to " + AddOrdinal(StartDate.EndOfMonth().Day) + ")");
+                        }
+                        else if (i == EndDate.Month && EndDate.Day != EndDate.EndOfMonth().Day)
+                        {
+                            ValidMonthLimits.Add(new DateTime(2015, i, 1).ToString("MMMM"),
+                                new DateTime(2015, i, 1).ToString("MMMM") + " (From " + AddOrdinal(1) + " to " + AddOrdinal(EndDate.Day) + ")");
+                        }
+                        else
+                            ValidMonthLimits.Add(new DateTime(2015, i, 1).ToString("MMMM"),
+                                new DateTime(2015, i, 1).ToString("MMMM") + " (From " + AddOrdinal(1) + " to " +
+                                AddOrdinal(new DateTime(2015, i, 1).LastDayOfMonth().Day) + ")");
+                    }
+                }
+                else
+                {
+                    ValidMonthLimits.Add(StartDate.ToString("MMMM"),
+                        StartDate.ToString("MMMM") + " (From " + AddOrdinal(StartDate.Day) + " to " + AddOrdinal(EndDate.Day) + ")");
+                }
+
+                if (QuestionsForSplit != null && QuestionsForSplit?.Count() != 0)
+                {
+                    foreach (PrefillSlicing q in QuestionsForSplit)
+                    {
+                        if (q.DisplayType?.ToLower() == "select" && q.MultiSelect?.Count() > 0)
+                        {
+                            foreach (string option in q.MultiSelect)
+                            {
+                                AggregatedSplits prefillsplit = new AggregatedSplits();
+
+                                prefillsplit.DisplayName = q.Note == null ? q.Text : q.Note;
+                                prefillsplit.id = q.Id;
+
+                                prefillsplit.OptionName = option;
+                                prefillsplit.AnsweredCount = 0;
+                                prefillsplit.BouncedCount = 0;
+                                prefillsplit.CompletedCount = 0;
+                                prefillsplit.ErrorCount = 0;
+                                prefillsplit.ExceptionCount = 0;
+                                prefillsplit.SentCount = 0;
+                                prefillsplit.ThrottledCount = 0;
+                                prefillsplit.UnsubscribedCount = 0;
+
+                                PrefillSplits.Add(prefillsplit);
+                            }
+                        }
+                    }
+                }
+
+                if (BatchIdToFileName != null && BatchIdToFileName?.Count() != 0)
+                {
+                    foreach (RequestInitiatorRecords record in BatchIdToFileName)
+                    {
+                        AggregatedSplits split = new AggregatedSplits();
+
+                        split.id = record.BatchId;
+                        split.DisplayName = record.DisplayFileName;
+                        split.AnsweredCount = 0;
+                        split.BouncedCount = 0;
+                        split.CompletedCount = 0;
+                        split.ErrorCount = 0;
+                        split.ExceptionCount = 0;
+                        split.SentCount = 0;
+                        split.ThrottledCount = 0;
+                        split.UnsubscribedCount = 0;
+                        split.FilePlacedOn = record.CreatedOn.AddMinutes(TimeZoneOffset);
+
+                        FileMappedSplits.Add(split);
+                    }
+                }
+
+                //taking account of any other channel of creating tokens apart from placing file
+                AggregatedSplits OtherSourceSplit = new AggregatedSplits();
+
+                OtherSourceSplit.id = "Other Sources";
+                OtherSourceSplit.DisplayName = "Other Sources";
+                OtherSourceSplit.AnsweredCount = 0;
+                OtherSourceSplit.BouncedCount = 0;
+                OtherSourceSplit.CompletedCount = 0;
+                OtherSourceSplit.ErrorCount = 0;
+                OtherSourceSplit.ExceptionCount = 0;
+                OtherSourceSplit.SentCount = 0;
+                OtherSourceSplit.ThrottledCount = 0;
+                OtherSourceSplit.UnsubscribedCount = 0;
+
+                FileMappedSplits.Add(OtherSourceSplit);
+
+                //take 100000 tokens at a time to not overload memory
+                for (int i = 0; i < total; i = i + 100000)
+                {
+                    List<WXMPartnerMerged> MergedData = await via.GetMergedDataFromDb(filter, i, 100000);
+
+                    if (MergedData == null)
+                        MergedData = await via.GetMergedDataFromDb(filter, i, 100000);
+
+                    if (MergedData == null)
+                        continue;
+
+                    DataTable dt = new DataTable();
+                    dt.Clear();
+                    dt.Columns.Add("Questionnaire");
+                    dt.Columns.Add("Response Status");
+                    dt.Columns.Add("Message Sequence");
+                    dt.Columns.Add("Batch ID");
+                    dt.Columns.Add("Token ID");
+                    dt.Columns.Add("DeliveryWorkFlowId");
+                    dt.Columns.Add("Response Timestamp");
+                    dt.Columns.Add("Sent Month");
+                    dt.Columns.Add("Answered Month");
+                    dt.Columns.Add("Requested At");
+                    dt.Columns.Add("Last Updated");
+                    dt.Columns.Add("Requested");
+                    dt.Columns.Add("RequestedChannel");
+                    dt.Columns.Add("Token Created Status");
+                    dt.Columns.Add("TokenCreatedChannel");
+                    dt.Columns.Add("Sent Status");
+                    dt.Columns.Add("Channel");
+                    dt.Columns.Add("SentMessage");
+                    dt.Columns.Add("Message Template");
+                    dt.Columns.Add("Completion Status");
+                    dt.Columns.Add("Rejected");
+                    dt.Columns.Add("RejectedChannel");
+                    dt.Columns.Add("Error Status");
+                    dt.Columns.Add("ErrorChannel");
+                    dt.Columns.Add("ErrorMessage");
+                    dt.Columns.Add("Supressed Status");
+                    dt.Columns.Add("SupressedChannel");
+                    dt.Columns.Add("DispatchStatus");
+                    dt.Columns.Add("DispatchStatusChannel");
+                    dt.Columns.Add("DispatchStatusMessage");
+                    dt.Columns.Add("Throttling Status");
+                    dt.Columns.Add("Clicked Unsubscribe");
+                    dt.Columns.Add("UnsubscribeChannel");
+                    dt.Columns.Add("Unsubscribed Status");
+                    dt.Columns.Add("Bounced Status");
+                    dt.Columns.Add("BouncedChannel");
+                    dt.Columns.Add("Exception Status");
+                    dt.Columns.Add("ExceptionCount");
+                    dt.Columns.Add("ExceptionChannel");
+                    dt.Columns.Add("ExceptionMessage");
+                    dt.Columns.Add("Displayed Status");
+                    dt.Columns.Add("DispatchId");
+                    dt.Columns.Add("TargetHashed");
+                    dt.Columns.Add("RejectedMessage");
+
+                    Question ZoneQuestion = questions.Where(x => x.QuestionTags.Contains("cc_zone"))?.FirstOrDefault();
+                    Question TouchPointQuestion = questions.Where(x => x.QuestionTags.Contains("cc_touchpoint"))?.FirstOrDefault();
+                    Question LocationQuestion = questions.Where(x => x.QuestionTags.Contains("cc_location"))?.FirstOrDefault();
+
+                    dt.Columns.Add("Zone");
+                    dt.Columns.Add("Touchpoint");
+                    dt.Columns.Add("Location");
+
+                    foreach(var merged in MergedData)
+                    {
+                        int RemindersSent = 0;
+
+                        if (merged.Sent)
+                        {
+                            RemindersSent = merged.Events.Where(x => x.SentSequence != null)?.Select(x => x.SentSequence)?.Max() == null ? 0
+                                : (int)merged.Events.Where(x => x.SentSequence != null)?.Select(x => x.SentSequence)?.Max(); //Convert.ToInt32(m.SentSequence.Split(" ").LastOrDefault()) - 1;
+                        }
+
+                        List<int> ExceptionSequences = new List<int>();
+
+                        DateTime? LastSentTime = merged.Events.Where(x => x.SentSequence == RemindersSent &&
+                                                x.Action?.ToLower() == "sent")?.FirstOrDefault()?.TimeStamp;
+
+                        if (LastSentTime == null)
+                        {
+                            RemindersSent = merged.Events.Where(x => x.Action?.ToLower() == "exception")?.Count() == null ? 0 :
+                                                merged.Events.Where(x => x.Action?.ToLower() == "exception").Count() == 0 ? 0 :
+                                                merged.Events.Where(x => x.Action?.ToLower() == "exception").Count() - 1;
+
+                        }
+                        else
+                        {
+                            var ExceptionAfterSent = merged.Events.Where(x => x.Action?.ToLower() == "exception" && x.TimeStamp > LastSentTime);
+
+                            if (ExceptionAfterSent != null && ExceptionAfterSent?.Count() > 0)
+                            {
+                                RemindersSent = RemindersSent + ExceptionAfterSent.Count(); //starts from 0
+                            }
+                        }
+
+                        if (merged.Exception)
+                        {
+                            for (int j = 0; j <= RemindersSent; j++)
+                            {
+                                if (merged.Events.Where(x => x.SentSequence == j && x.Action?.ToLower() == "sent")?.FirstOrDefault() == null)
+                                {
+                                    ExceptionSequences.Add(j);
+                                }
+                            }
+                        }
+
+                        for (int j = 0; j <= RemindersSent; j++)
+                        {
+                            try
+                            {
+                                DataRow row = dt.NewRow();
+
+                                if (QuestionnairesWXM.Where(x => x.Name == merged.Questionnaire)?.Count() > 0)
+                                    row["Questionnaire"] = QuestionnairesWXM.Where(x => x.Name == merged.Questionnaire)?.FirstOrDefault().DisplayName + " (" + merged.Questionnaire + ")";
+                                else
+                                    row["Questionnaire"] = merged.Questionnaire + " (Questionnaire not present)";
+                                row["Response Status"] = j == RemindersSent && merged.Answered ? "Answered" :
+                                    merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                    x.SentSequence == j)?.FirstOrDefault() == null ? "Not Sent" : "Unanswered";
+                                row["Batch ID"] = merged.BatchId;
+                                row["Token ID"] = merged._id;
+                                row["DeliveryWorkFlowId"] = merged.DeliveryWorkFlowId;
+                                row["Response Timestamp"] = merged.AnsweredAt.Year == 0001 ? null : j == RemindersSent && merged.Answered ? merged.AnsweredAt.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD : null;
+
+                                string SentMonth = merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true
+                                    && x.SentSequence == j)?.FirstOrDefault() == null ? "Not Sent" :
+                                    "Sent in " + merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true
+                                    && x.SentSequence == j)?.FirstOrDefault()?.TimeStamp.AddMinutes(TimeZoneOffset).ToString("MMMM");
+
+
+                                string AnsweredMonth = j == RemindersSent && merged.Answered ? "Answered in " + merged.AnsweredAt.AddMinutes(TimeZoneOffset).ToString("MMMM") : "Unanswered";
+
+                                if (ValidMonthLimits?.Keys?.Contains(SentMonth) == true)
+                                    SentMonth = ValidMonthLimits[SentMonth];
+
+                                row["Sent Month"] = SentMonth;
+                                row["Answered Month"] = AnsweredMonth;
+
+                                row["Requested At"] = merged.CreatedAt.Year == 0001 ? null : merged.CreatedAt.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
+                                row["Last Updated"] = merged.LastUpdated.Year == 0001 ? null : merged.LastUpdated.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
+                                row["Requested"] = merged.Requested ? "Requested" : "Not Requested";
+                                row["RequestedChannel"] = merged.RequestedChannel;
+                                row["Token Created Status"] = merged.TokenCreated ? "Token Created" : "Token Not Created";
+                                row["TokenCreatedChannel"] = merged.TokenCreatedChannel;
+                                row["Sent Status"] = merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                x.SentSequence == j)?.FirstOrDefault() == null ? "Not Sent" : "Sent";
+                                row["Channel"] = merged.Sent ? merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                x.SentSequence == j)?.FirstOrDefault() == null ? "Not Sent" : merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                x.SentSequence == j)?.FirstOrDefault()?.Channel?.Split(":")?.FirstOrDefault() : "Not Sent";
+                                row["SentMessage"] = merged.Sent ? merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                x.SentSequence == j)?.FirstOrDefault() == null ? "Not Sent" : merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                x.SentSequence == j)?.FirstOrDefault()?.Message : "Not Sent";
+
+                                string TemplateId = merged.Sent ? merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                x.SentSequence == j)?.FirstOrDefault() == null ? "Not Sent" : merged.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
+                                x.SentSequence == j)?.FirstOrDefault()?.MessageTemplate : "Not Sent";
+
+                                string TemplateName = templates?.Where(x => x.Id == TemplateId)?.FirstOrDefault()?.Name;
+
+                                string messagetemplate = null;
+
+                                if (string.IsNullOrEmpty(TemplateName) && TemplateId == "Not Sent")
+                                    messagetemplate = TemplateId;
+                                else
+                                {
+                                    if (string.IsNullOrEmpty(TemplateName))
+                                    {
+                                        messagetemplate = TemplateId + " (Template not present)";
+                                    }
+                                    else
+                                    {
+                                        messagetemplate = TemplateName + " (" + TemplateId + ")";
+                                    }
+                                }
+
+                                row["Message Template"] = messagetemplate;
+                                row["Completion Status"] = j == RemindersSent ? merged.Partial ? "Partial" : merged.Answered ? "Completed" : "Unanswered" : "Unanswered";
+                                row["Rejected"] = merged.Rejected ? "Rejected" : "Not Rejected";
+                                row["RejectedChannel"] = merged.RejectedChannel;
+                                row["RejectedMessage"] = merged.RejectedMessage;
+                                row["Error Status"] = merged.Error ? "Error" : "No Error";
+                                row["ErrorChannel"] = merged.ErrorChannel;
+                                row["ErrorMessage"] = merged.ErrorMessage;
+                                row["Supressed Status"] = merged.Supressed ? "Supressed" : "Not Supressed";
+                                row["SupressedChannel"] = merged.SupressedChannel;
+
+                                row["DispatchStatus"] = merged.Events?.Where(x => x.Action?.ToLower()?
+                                .Contains("dispatchsuccessful") == true &&
+                                j.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault() != null
+                                ? "Successful" : merged.Events?.Where(x => x.Action?.ToLower()?
+                                .Contains("dispatchunsuccessful") == true &&
+                                j.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault() != null ? "Unsuccessful"
+                                : "Unsuccessful";
+                                row["DispatchStatusChannel"] = merged.Events?.Where(x => (x.Action?.ToLower()?
+                                .Contains("dispatchsuccessful") == true || x.Action?.ToLower()?
+                                .Contains("dispatchunsuccessful") == true) &&
+                                j.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault()?.Channel;
+                                row["DispatchStatusMessage"] = merged.Events?.Where(x => (x.Action?.ToLower()?
+                                .Contains("dispatchsuccessful") == true || x.Action?.ToLower()?
+                                .Contains("dispatchunsuccessful") == true) &&
+                                j.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault()?.LogMessage;
+
+                                row["Throttling Status"] = merged.Throttled ? "Throttled" : "Not Throttled";
+                                if (a.DispatchChannels.Where(x => x.DispatchId == merged.DispatchId)?.Count() > 0)
+                                    row["DispatchId"] = a.DispatchChannels.Where(x => x.DispatchId == merged.DispatchId).FirstOrDefault().DispatchName + " (" + merged.DispatchId + ")";
+                                else
+                                    row["DispatchId"] = merged.DispatchId + " (Dispatch not present)";
+                                row["TargetHashed"] = merged.TargetHashed;
+                                row["Clicked Unsubscribe"] = merged.Unsubscribe ? "Yes" : "No";
+                                row["UnsubscribeChannel"] = merged.UnsubscribeChannel;
+                                row["Unsubscribed Status"] = merged.Unsubscribed ? "Unsubscribed" : "Not Unsubscribed";
+                                row["Bounced Status"] = merged.Bounced ? "Bounced" : "Not Bounced";
+                                row["BouncedChannel"] = merged.BouncedChannel;
+                                row["Exception Status"] = ExceptionSequences?.Contains(j) == true ?
+                                    "Exception" : "No Exception";
+                                row["ExceptionMessage"] = ExceptionSequences?.Contains(j) == true ?
+                                    merged.Events.Where(x => x.Action?.ToLower()?.Contains("exception") == true)?.ToList()[ExceptionSequences.IndexOf(j)]?.Message :
+                                    null;
+                                row["ExceptionCount"] = merged.ExceptionCount;
+                                row["ExceptionChannel"] = ExceptionSequences?.Contains(j) == true ?
+                                    merged.Events.Where(x => x.Action?.ToLower()?.Contains("exception") == true)?.ToList()[ExceptionSequences.IndexOf(j)]?.Channel :
+                                    null;
+                                row["Displayed Status"] = merged.Displayed ? "Displayed" : "Not Displayed";
+                                row["Message Sequence"] = j == 0 ? "Message 1" : "Message " + (j + 1).ToString();
+
+                                if (merged.Responses?.Any(x => x.QuestionId == ZoneQuestion.Id) == true)
+                                    row["Zone"] = merged.Responses.Where(x => x.QuestionId == ZoneQuestion.Id).FirstOrDefault().TextInput;
+                                if (merged.Responses?.Any(x => x.QuestionId == TouchPointQuestion.Id) == true)
+                                    row["Touchpoint"] = merged.Responses.Where(x => x.QuestionId == TouchPointQuestion.Id).FirstOrDefault().TextInput;
+                                if (merged.Responses?.Any(x => x.QuestionId == LocationQuestion.Id) == true)
+                                    row["Location"] = merged.Responses.Where(x => x.QuestionId == LocationQuestion.Id).FirstOrDefault().TextInput;
+
+                                dt.Rows.Add(row);
+                            }
+                            catch (Exception ex)
+                            {
+                                continue;
+                            }
+                        }
+
+                        if (merged.Answered)
+                        {
+                            TotalSplit.AnsweredCount++;
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                            merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.AnsweredCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().AnsweredCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().AnsweredCount++;
+                        }
+                        if (merged.Bounced && !merged.Sent)
+                        {
+                            TotalSplit.BouncedCount++;
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                            merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.BouncedCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().BouncedCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().BouncedCount++;
+                        }
+                        if (!merged.Partial && merged.Answered)
+                        {
+                            TotalSplit.CompletedCount++;
+
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                        merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.CompletedCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().CompletedCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().CompletedCount++;
+                        }
+                        if (merged.Error && !merged.Sent)
+                        {
+                            TotalSplit.ErrorCount++;
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                        merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.ErrorCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().ErrorCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().ErrorCount++;
+                        }
+                        if (merged.Exception && !merged.Sent)
+                        {
+                            TotalSplit.ExceptionCount++;
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                        merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.ExceptionCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().ExceptionCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().ExceptionCount++;
+                        }
+                        if (merged.Sent)
+                        {
+                            TotalSplit.SentCount++;
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                               merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.SentCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().SentCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().SentCount++;
+                        }
+                        if (merged.Throttled && !merged.Sent)
+                        {
+                            TotalSplit.ThrottledCount++;
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                            merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.ThrottledCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().ThrottledCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().ThrottledCount++;
+                        }
+                        if (merged.Unsubscribed && !merged.Sent)
+                        {
+                            TotalSplit.UnsubscribedCount++;
+                            foreach (AggregatedSplits s in PrefillSplits.Where(x => x.OptionName != null &&
+                                                                            merged.Responses?.Where(z => z.QuestionId == x.id)?.FirstOrDefault()?.TextInput == x.OptionName))
+                            {
+                                s.UnsubscribedCount++;
+                            }
+                            if (FileMappedSplits.Where(x => x.id == merged.BatchId)?.Count() == 1)
+                                FileMappedSplits.Where(x => x.id == merged.BatchId).FirstOrDefault().UnsubscribedCount++;
+                            else
+                                FileMappedSplits.Where(x => x.id == "Other Sources").FirstOrDefault().UnsubscribedCount++;
+                        }
+                    }
+
+                    DataTable SentData = new DataTable();
+
+                    try
+                    {
+                        SentData = dt.AsEnumerable().
+                        Where(r => r.Field<string>("Sent Status") == "Sent").
+                        OrderByDescending(y => y.Field<String>("Questionnaire")).
+                        CopyToDataTable();
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    Parallel.Invoke(() => {
+                        //Channel splits
+                        List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Channel"]?.ToString())?.Distinct()?.ToList();
+
+                        if (UniqueVals?.Count() > 0)
+                        {
+                            List<AggregatedSplits> splits = Splitter(SentData, "Channel", UniqueVals);
+
+                            if (splits?.Count() > 0)
+                                ChannelSplits.Add(splits);
+                        }
+                    }, 
+                    () => {
+                        //Questionnaire splits
+                        List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Questionnaire"]?.ToString())?.Distinct()?.ToList();
+
+                        if (UniqueVals?.Count() > 0)
+                        {
+                            List<AggregatedSplits> splits = Splitter(SentData, "Questionnaire", UniqueVals);
+
+                            if (splits?.Count() > 0)
+                                QuestionnaireSplits.Add(splits);
+                        }
+                    }, 
+                    () => {
+                        //Month splits
+                        List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Sent Month"]?.ToString())?.Distinct()?.ToList();
+
+                        if (UniqueVals?.Count() > 0)
+                        {
+                            List<AggregatedSplits> splits = Splitter(SentData, "Sent Month", UniqueVals);
+
+                            if (splits?.Count() > 0)
+                                MonthSplits.Add(splits);
+                        }
+                    },
+                    () => {
+                        //Dispatch splits
+                        List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["DispatchId"]?.ToString())?.Distinct()?.ToList();
+
+                        if (UniqueVals?.Count() > 0)
+                        {
+                            List<AggregatedSplits> splits = Splitter(SentData, "DispatchId", UniqueVals);
+
+                            if (splits?.Count() > 0)
+                                DispatchSplits.Add(splits);
+                        }
+                    },
+                    () => {
+                        //Message template splits
+                        List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Message Template"]?.ToString())?.Distinct()?.ToList();
+
+                        if (UniqueVals?.Count() > 0)
+                        {
+                            List<AggregatedSplits> splits = Splitter(SentData, "Message Template", UniqueVals);
+
+                            if (splits?.Count() > 0)
+                                MessageTemplateSplits.Add(splits);
+                        }
+                    },
+                    () => {
+                        //Sequence splits
+                        List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Message Sequence"]?.ToString())?.Distinct()?.ToList();
+
+                        if (UniqueVals?.Count() > 0)
+                        {
+                            List<AggregatedSplits> splits = Splitter(SentData, "Message Sequence", UniqueVals);
+
+                            if (splits?.Count() > 0)
+                                SequenceSplits.Add(splits);
+                        }
+                    },
+                    () => {
+                        //Zone Splits
+                        if (ZoneQuestion != null)
+                        {
+                            List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Zone"]?.ToString())?.Distinct()?.ToList();
+
+                            if (UniqueVals?.Count() > 0)
+                            {
+                                List<AggregatedSplits> splits = Splitter(SentData, "Zone", UniqueVals);
+
+                                if (splits?.Count() > 0)
+                                    ZoneSplits.Add(splits);
+                            }
+                        }
+                    },
+                    () => {
+                        //touch point splits
+                        if (TouchPointQuestion != null)
+                        {
+                            List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Touchpoint"]?.ToString())?.Distinct()?.ToList();
+
+                            if (UniqueVals?.Count() > 0)
+                            {
+                                List<AggregatedSplits> splits = Splitter(SentData, "Touchpoint", UniqueVals);
+
+                                if (splits?.Count() > 0)
+                                    TouchpointSplits.Add(splits);
+                            }
+                        }
+                    },
+                    () => {
+                        // location splits
+                        if (LocationQuestion != null)
+                        {
+                            List<string> UniqueVals = SentData.AsEnumerable().Select(x => x["Location"]?.ToString())?.Distinct()?.ToList();
+
+                            if (UniqueVals?.Count() > 0)
+                            {
+                                List<AggregatedSplits> splits = Splitter(SentData, "Location", UniqueVals);
+
+                                if (splits?.Count() > 0)
+                                    LocationSplits.Add(splits);
+                            }
+                        }
+                    });
+                }
+
+                List<AggregatedSplits> FinalSplits = new List<AggregatedSplits>();
+
+                FinalSplits.Add(TotalSplit);
+                FinalSplits.AddRange(FileMappedSplits);
+                FinalSplits.AddRange(PrefillSplits);
+
+                List<string> GetUniques(List<List<AggregatedSplits>> Aggregates)
+                {
+                    if (Aggregates?.Count() > 0)
+                    {
+                        List<string> Uniques = new List<string>();
+
+                        foreach (List<AggregatedSplits> splits in Aggregates)
+                        {
+                            if(splits != null && splits.Count() > 0)
+                                Uniques.AddRange(splits.Select(x => x.DisplayName));
+                        }
+
+                        return Uniques.Distinct().ToList();
+                    }
+
                     return null;
+                }
 
-                ExcelPackage package = new ExcelPackage();
+                List<AggregatedSplits> AggregateToFinalSplits(List<List<AggregatedSplits>> DividedSplits, string id)
+                {
+                    try
+                    {
+                        if (DividedSplits.Where(x => x != null)?.Count() > 0)
+                        {
+                            List<AggregatedSplits> FinalSplits = new List<AggregatedSplits>();
 
+                            List<string> Uniques = GetUniques(DividedSplits);
+
+                            foreach (string unique in Uniques)
+                            {
+                                try
+                                {
+                                    AggregatedSplits totalsplit = new AggregatedSplits();
+                                    totalsplit.id = id;
+                                    totalsplit.DisplayName = unique;
+
+                                    var requiredsplits = DividedSplits.Where(z => z?.Select(t => t.DisplayName)
+                                                            ?.Contains(unique) == true);
+
+                                    totalsplit.SentCount = requiredsplits.Select(x => x.Where(y => y.DisplayName == unique)
+                                                            .FirstOrDefault().SentCount).Sum();
+
+                                    totalsplit.AnsweredCount = requiredsplits.Select(x => x.Where(y => y.DisplayName == unique)
+                                                            .FirstOrDefault().AnsweredCount).Sum();
+
+                                    totalsplit.CompletedCount = requiredsplits.Select(x => x.Where(y => y.DisplayName == unique)
+                                                            .FirstOrDefault().CompletedCount).Sum();
+
+                                    FinalSplits.Add(totalsplit);
+                                }
+                                catch (Exception ex)
+                                {
+                                    continue;
+                                }
+                            }
+
+                            return FinalSplits;
+                        }
+
+                        return null;
+                    }
+                    catch (Exception ex)
+                    {
+                        log.logMessage += $"Error in AggregateToFinalSplits method {ex.Message}    {ex.StackTrace}";
+                        return null;
+                    }
+                }
+
+                var final = AggregateToFinalSplits(ChannelSplits, "Channel");
+                if(final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(QuestionnaireSplits, "Questionnaire");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(MonthSplits, "Sent Month");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(DispatchSplits, "DispatchId");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(MessageTemplateSplits, "Message Template");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(SequenceSplits, "Message Sequence");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(ZoneSplits, "Zone");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(TouchpointSplits, "Touchpoint");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                final = AggregateToFinalSplits(LocationSplits, "Location");
+                if (final != null)
+                    FinalSplits.AddRange(final);
+
+                return FinalSplits;
+            }
+            catch (Exception ex)
+            {
+                log.logMessage += $"Error aggregating data for excel report {ex.Message}    {ex.StackTrace}";
+                return null;
+            }
+        }
+
+        List<AggregatedSplits> Splitter(DataTable dt, string header, List<string> UniqueVals)
+        {
+            if (dt == null || header == null)
+                return null;
+
+            if (!dt?.Columns?.Contains(header) == true)
+                return null;
+
+            List<AggregatedSplits> splits = new List<AggregatedSplits>();
+
+            try
+            {
+                Dictionary<string, Tuple<int, int>> stats = new Dictionary<string, Tuple<int, int>>();
+
+                foreach (string val in UniqueVals.Where(x => !string.IsNullOrEmpty(x)))
+                {
+                    AggregatedSplits a = new AggregatedSplits();
+
+                    a.id = header;
+                    a.DisplayName = val;
+
+                    a.CompletedCount = dt.AsEnumerable().Where(r => r.Field<String>(header) == val
+                                            && r.Field<String>("Response Status") == "Answered" &&
+                                            r.Field<String>("Completion Status") == "Completed").Count();
+                    a.AnsweredCount = dt.AsEnumerable().Where(r => r.Field<String>(header) == val
+                                            && r.Field<String>("Response Status") == "Answered").Count();
+                    a.SentCount = dt.AsEnumerable().Where(r => r.Field<String>(header) == val
+                                            && r.Field<string>("Sent Status") == "Sent").Count();
+
+                    splits.Add(a);
+                }
+
+                return splits;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        Tuple<ExcelWorksheet, int> CreateDetailedLogs(ExcelWorksheet sheet, List<WXMPartnerMerged> MergedData, FilterBy filter, AccountConfiguration a, int RowNo)
+        {
+            if (MergedData == null || filter == null || a == null)
+                return null;
+
+            try
+            {
                 #region Detailed Logs
 
-                var sheet1 = package.Workbook.Worksheets.Add("Detailed Logs");
-
-                sheet1.Cells[1, 1].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                sheet1.Cells[1, 1].Style.Font.Bold = true;
-
-                sheet1.Cells[2, 1].Value = "DeliveryWorkFlowId";
-                sheet1.Cells[2, 1].Style.Font.Bold = true;
-                sheet1.Cells[2, 2].Value = "TimeStamp";
-                sheet1.Cells[2, 2].Style.Font.Bold = true;
-                sheet1.Cells[2, 3].Value = "Questionnaire";
-                sheet1.Cells[2, 3].Style.Font.Bold = true;
-                sheet1.Cells[2, 4].Value = "Channel";
-                sheet1.Cells[2, 4].Style.Font.Bold = true;
-                sheet1.Cells[2, 5].Value = "Action";
-                sheet1.Cells[2, 5].Style.Font.Bold = true;
-                sheet1.Cells[2, 5].AddComment("Possible values for action: \r\n" +
-                                              "Unsubscribe- User has clicked on unsubscribe \r\n" +
-                                              "Unsubscribed- User has already unsubscribed from getting survey invites \r\n" +
-                                              "Bounced- User did not receive invite as it was bounced \r\n" +
-                                              "Exception- User did not receive invite due to an error \r\n" +
-                                              "Displayed- User clicked on the survey link and it was displayed \r\n" +
-                                              "Sent- Invite was sent to the user \r\n" +
-                                              "Throttled- User did not receive invite due to the throttling logic \r\n" +
-                                              "Answered- User answered the survey \r\n" +
-                                              "Requested- Token creation has been requested \r\n" +
-                                              "Rejected- Token creation has been rejected \r\n" +
-                                              "Tokencreated- Survey token was created for the user to answer the survey \r\n" +
-                                              "Error- User did not receive invite due to an error \r\n" +
-                                              "Supressed- User did not receive invite as it was supressed \r\n" +
-                                              "DispatchSuccessful- Invite was dispatched successfully to the user \r\n" +
-                                              "DispatchUnsuccessful- Invite was not dispatched to the user due to some error", "WXM Team");
-                sheet1.Cells[2, 5].Comment.AutoFit = true;
-                sheet1.Cells[2, 6].Value = "Message";
-                sheet1.Cells[2, 6].Style.Font.Bold = true;
-                sheet1.Cells[2, 7].Value = "DispatchID";
-                sheet1.Cells[2, 7].Style.Font.Bold = true;
-                sheet1.Cells[2, 8].Value = "TargetHashed";
-                sheet1.Cells[2, 8].Style.Font.Bold = true;
-                sheet1.Cells[2, 9].Value = "Message Sequence";
-                sheet1.Cells[2, 9].Style.Font.Bold = true;
-                sheet1.Cells[2, 10].Value = "Message template";
-                sheet1.Cells[2, 10].Style.Font.Bold = true;
-                sheet1.Cells[2, 11].Value = "Token ID";
-                sheet1.Cells[2, 11].Style.Font.Bold = true;
-
-                FormatHeader(sheet1.Cells["A2:K2"], 3);
-
-                int RowNo = 3;
-
-                ExcelWorksheet DoDefaultValues(ExcelWorksheet sheet, WXMPartnerMerged data, int row)
-                {
-                    sheet.Cells[row, 1].Value = data.DeliveryWorkFlowId;
-                    if (QuestionnairesWXM.Where(x => x.Name == data.Questionnaire)?.Count() > 0)
-                        sheet1.Cells[row, 3].Value = QuestionnairesWXM.Where(x => x.Name == data.Questionnaire)?.FirstOrDefault().DisplayName + " (" + data.Questionnaire + ")";
-                    else
-                        sheet1.Cells[row, 3].Value = data.Questionnaire + " (Questionnaire not present)";
-                    sheet.Cells[row, 11].Value = data._id;
-                    if (a.DispatchChannels.Where(x => x.DispatchId == data.DispatchId)?.Count() > 0)
-                        sheet.Cells[row, 7].Value = a.DispatchChannels.Where(x => x.DispatchId == data.DispatchId).FirstOrDefault().DispatchName + " (" + data.DispatchId + ")";
-                    else
-                        sheet.Cells[row, 7].Value = data.DispatchId + " (Dispatch not present)";
-
-                    sheet.Cells[row, 8].Value = data.TargetHashed;
-
-                    return sheet;
-                }
+                int TimeZoneOffset = (int)(profile.TimeZoneOffset == null ? settings.TimeZoneOffset : profile.TimeZoneOffset);
+                string UTCTZD = TimeZoneOffset >= 0 ? "UTC+" : "UTC-";
+                UTCTZD = UTCTZD + Math.Abs(Convert.ToInt32(TimeZoneOffset / 60)).ToString() + ":" + Math.Abs(TimeZoneOffset % 60).ToString();
 
                 foreach (WXMPartnerMerged o in MergedData)
                 {
                     try
                     {
-                        foreach(DeliveryEvent d in o.Events)
+                        foreach (DeliveryEvent d in o.Events)
                         {
                             if (d.Action == "Sent")
                             {
-                                sheet1 = DoDefaultValues(sheet1, o, RowNo);
-                                sheet1.Cells[RowNo, 4].Value = d.Channel;
-                                sheet1.Cells[RowNo, 5].Value = "Sent";
-                                sheet1.Cells[RowNo, 6].Value = d.Message;
+                                sheet = DoDefaultValues(sheet, o, RowNo, a);
+                                sheet.Cells[RowNo, 4].Value = d.Channel;
+                                sheet.Cells[RowNo, 5].Value = "Sent";
+                                sheet.Cells[RowNo, 6].Value = d.Message;
 
                                 string TemplateName = templates?.Where(x => x.Id == d.MessageTemplate)?.FirstOrDefault()?.Name;
 
@@ -193,22 +983,22 @@ namespace DPReporting
                                     }
                                 }
 
-                                sheet1.Cells[RowNo, 10].Value = messagetemplate;
-                                sheet1.Cells[RowNo, 9].Value = d.SentSequence == 0 ? "Message 1" : d.SentSequence != null ? "Message " + (d.SentSequence + 1)?.ToString() : null;
-                                sheet1.Cells[RowNo, 2].Value = d.TimeStamp.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
+                                sheet.Cells[RowNo, 10].Value = messagetemplate;
+                                sheet.Cells[RowNo, 9].Value = d.SentSequence == 0 ? "Message 1" : d.SentSequence != null ? "Message " + (d.SentSequence + 1)?.ToString() : null;
+                                sheet.Cells[RowNo, 2].Value = d.TimeStamp.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
 
                                 RowNo++;
                             }
                             else
                             {
-                                sheet1 = DoDefaultValues(sheet1, o, RowNo);
-                                sheet1.Cells[RowNo, 4].Value = d.Channel;
-                                sheet1.Cells[RowNo, 5].Value = d.Action;
+                                sheet = DoDefaultValues(sheet, o, RowNo, a);
+                                sheet.Cells[RowNo, 4].Value = d.Channel;
+                                sheet.Cells[RowNo, 5].Value = d.Action;
                                 //in case of dispatch status, need to add log message
-                                sheet1.Cells[RowNo, 6].Value = d.Action?.ToLower() == "dispatchsuccessful" ||
+                                sheet.Cells[RowNo, 6].Value = d.Action?.ToLower() == "dispatchsuccessful" ||
                                     d.Action?.ToLower() == "dispatchunsuccessful" ?
                                     d.LogMessage : d.Message;
-                                sheet1.Cells[RowNo, 2].Value = d.TimeStamp.Year == 0001 ? o.CreatedAt.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD :
+                                sheet.Cells[RowNo, 2].Value = d.TimeStamp.Year == 0001 ? o.CreatedAt.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD :
                                 d.TimeStamp.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
 
                                 RowNo++;
@@ -223,496 +1013,97 @@ namespace DPReporting
 
                 }
 
-                sheet1.Cells["A2:G2"].AutoFitColumns(10, 60);
+                sheet.Cells["A2:G2"].AutoFitColumns(10, 60);
+
+                return new Tuple<ExcelWorksheet, int>(sheet, RowNo);
 
                 #endregion
+            }
+            catch (Exception ex)
+            {
+                log.logMessage += $"Error generating detailed logs report {ex.Message}    {ex.StackTrace}";
+                return null;
+            }
+        }
 
-                DateTime StartDate = filter.afterdate.AddMinutes(TimeZoneOffset);
-                DateTime EndDate = filter.beforedate.AddMinutes(TimeZoneOffset);
+        ExcelWorksheet DoDefaultValues(ExcelWorksheet sheet, WXMPartnerMerged data, int row, AccountConfiguration a)
+        {
+            sheet.Cells[row, 1].Value = data.DeliveryWorkFlowId;
+            if (QuestionnairesWXM.Where(x => x.Name == data.Questionnaire)?.Count() > 0)
+                sheet.Cells[row, 3].Value = QuestionnairesWXM.Where(x => x.Name == data.Questionnaire)?.FirstOrDefault().DisplayName + " (" + data.Questionnaire + ")";
+            else
+                sheet.Cells[row, 3].Value = data.Questionnaire + " (Questionnaire not present)";
+            sheet.Cells[row, 11].Value = data._id;
+            if (a.DispatchChannels.Where(x => x.DispatchId == data.DispatchId)?.Count() > 0)
+                sheet.Cells[row, 7].Value = a.DispatchChannels.Where(x => x.DispatchId == data.DispatchId).FirstOrDefault().DispatchName + " (" + data.DispatchId + ")";
+            else
+                sheet.Cells[row, 7].Value = data.DispatchId + " (Dispatch not present)";
 
+            sheet.Cells[row, 8].Value = data.TargetHashed;
 
-                //needed to parse the months correctly in the raw data of the report
-                Dictionary<string, string> ValidMonthLimits = new Dictionary<string, string>();
+            return sheet;
+        }
 
-                if (StartDate.Month != EndDate.Month)
+        byte[] CreateMetricsReport(List<AggregatedSplits> AllSplits, FilterBy filter, AccountConfiguration a, Question ZoneQuestion, Question TouchPointQuestion, Question LocationQuestion)
+        {
+            if (AllSplits == null || filter == null || a == null)
+                return null;
+
+            try
+            {
+                ExcelWorksheet MakeOverviewHeaders(ExcelWorksheet sheet, int startrow)
                 {
-                    for (int i = StartDate.Month; i <= EndDate.Month; i++)
-                    {
-                        if (i == StartDate.Month && StartDate.Day != 1)
-                        {
-                            ValidMonthLimits.Add(new DateTime(2015, i, 1).ToString("MMMM"),
-                                new DateTime(2015, i, 1).ToString("MMMM") + " (From " + AddOrdinal(StartDate.Day) + " to " + AddOrdinal(StartDate.EndOfMonth().Day) + ")");
-                        }
-                        else if (i == EndDate.Month && EndDate.Day != EndDate.EndOfMonth().Day)
-                        {
-                            ValidMonthLimits.Add(new DateTime(2015, i, 1).ToString("MMMM"),
-                                new DateTime(2015, i, 1).ToString("MMMM") + " (From " + AddOrdinal(1) + " to " + AddOrdinal(EndDate.Day) + ")");
-                        }
-                        else
-                            ValidMonthLimits.Add(new DateTime(2015, i, 1).ToString("MMMM"), 
-                                new DateTime(2015, i, 1).ToString("MMMM") + " (From " + AddOrdinal(1) + " to " + 
-                                AddOrdinal(new DateTime(2015, i, 1).LastDayOfMonth().Day) + ")");
-                    }
-                }
-                else
-                {
-                    ValidMonthLimits.Add(StartDate.ToString("MMMM"),
-                        StartDate.ToString("MMMM") + " (From " + AddOrdinal(StartDate.Day) + " to " + AddOrdinal(EndDate.Day) + ")");
-                }
+                    sheet.Column(1).Width = 45;
 
-                #region Datatable definition
+                    sheet.Cells[startrow, 2].Value = "Total Invites Requested";
+                    sheet.Column(9).Width = 16;
+                    sheet.Cells[startrow, 2].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    sheet.Cells[startrow, 2].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));
+                    sheet.Cells[startrow, 2].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+                    sheet.Cells[startrow, 2, startrow, 9].Style.Font.Bold = true;
+                    sheet.Cells[startrow, 2, startrow, 9].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+                    sheet.Cells[startrow, 2, startrow, 9].Style.WrapText = true;
 
-                DataTable dt = new DataTable();
-                dt.Clear();
-                dt.Columns.Add("Questionnaire");
-                dt.Columns.Add("Response Status");
-                dt.Columns.Add("Message Sequence");
-                dt.Columns.Add("Batch ID");
-                dt.Columns.Add("Token ID");
-                dt.Columns.Add("DeliveryWorkFlowId");
-                dt.Columns.Add("Response Timestamp");
-                dt.Columns.Add("Sent Month");
-                dt.Columns.Add("Answered Month");
-                dt.Columns.Add("Requested At");
-                dt.Columns.Add("Last Updated");
-                dt.Columns.Add("Requested");
-                dt.Columns.Add("RequestedChannel");
-                dt.Columns.Add("Token Created Status");
-                dt.Columns.Add("TokenCreatedChannel");
-                dt.Columns.Add("Sent Status");
-                dt.Columns.Add("Channel");
-                dt.Columns.Add("SentMessage");
-                dt.Columns.Add("Message Template");
-                dt.Columns.Add("Completion Status");
-                dt.Columns.Add("Rejected");
-                dt.Columns.Add("RejectedChannel");
-                dt.Columns.Add("Error Status");
-                dt.Columns.Add("ErrorChannel");
-                dt.Columns.Add("ErrorMessage");
-                dt.Columns.Add("Supressed Status");
-                dt.Columns.Add("SupressedChannel");
-                dt.Columns.Add("DispatchStatus");
-                dt.Columns.Add("DispatchStatusChannel");
-                dt.Columns.Add("DispatchStatusMessage");
-                dt.Columns.Add("Throttling Status");
-                dt.Columns.Add("Clicked Unsubscribe");
-                dt.Columns.Add("UnsubscribeChannel");
-                dt.Columns.Add("Unsubscribed Status");
-                dt.Columns.Add("Bounced Status");
-                dt.Columns.Add("BouncedChannel");
-                dt.Columns.Add("Exception Status");
-                dt.Columns.Add("ExceptionCount");
-                dt.Columns.Add("ExceptionChannel");
-                dt.Columns.Add("ExceptionMessage");
-                dt.Columns.Add("Displayed Status");
-                dt.Columns.Add("DispatchId");
-                dt.Columns.Add("TargetHashed");
-                dt.Columns.Add("RejectedMessage");
+                    sheet.Cells[startrow, 3].Value = "Throttled";
+                    sheet.Column(5).Width = 16;
+                    sheet.Cells[startrow, 4].Value = "Unsubscribed";
+                    sheet.Column(6).Width = 16;
+                    sheet.Cells[startrow, 5].Value = "Bounced";
+                    sheet.Column(7).Width = 16;
+                    sheet.Cells[startrow, 6].Value = "Exception";
+                    sheet.Column(8).Width = 16;
 
-                Dictionary<string, string> QuestionIdTextMapping = new Dictionary<string, string>();
+                    sheet.Cells[startrow, 3, startrow, 6].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    sheet.Cells[startrow, 3, startrow, 6].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(192, 0, 0));
+                    sheet.Cells[startrow, 3, startrow, 6].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+                    sheet.Cells[startrow, 3, startrow, 6].Style.Font.Bold = true;
+                    sheet.Cells[startrow, 3, startrow, 6].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+                    sheet.Cells[startrow, 3, startrow, 6].Style.WrapText = true;
 
-                //take the questions present in the dp related qnrs and create the headers. make sure you specify which ones are number type or not 
-                foreach (Question q in questions)
-                {
-                    QuestionIdTextMapping.Add(q.Id, q.Text);
+                    sheet.Cells[startrow, 7].Value = "Total Invites Processed";
+                    sheet.Column(2).Width = 16;
+                    sheet.Cells[startrow, 8].Value = "Total Invites Answered(Out of Total Processed)";
+                    sheet.Column(3).Width = 16;
+                    sheet.Cells[startrow, 9].Value = "Completed Responses(Out of Total Answered)";
+                    sheet.Column(4).Width = 16;
 
-                    if (q.Text?.ToLower()?.Contains("batchid") == true ||
-                                    q.Text?.ToLower()?.Contains("deliveryplanid") == true ||
-                                    q.Text?.ToLower()?.Contains("token id") == true || 
-                                    q.QuestionTags.Select(x => x.ToLower())?.Contains("cc_channel") == true)
-                        continue;
+                    sheet.Cells[startrow, 7, startrow, 9].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    sheet.Cells[startrow, 7, startrow, 9].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(84, 130, 53));
+                    sheet.Cells[startrow, 7, startrow, 9].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+                    sheet.Cells[startrow, 7, startrow, 9].Style.Font.Bold = true;
+                    sheet.Cells[startrow, 7, startrow, 9].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+                    sheet.Cells[startrow, 7, startrow, 9].Style.WrapText = true;
 
-                    if (q.DisplayLocation?.Intersect(Questionnaires)?.Count() == 0 && (q.DisplayLocation != null && q.DisplayLocation?.Count() != 0))
-                        continue;
+                    sheet.Row(startrow).Height = 45;
 
-                    if (q.Text != null)
-                    {
-                        if (!dt.Columns?.Contains(q.Text) == true)
-                            dt.Columns.Add(q.Text);
-
-                        if (NumberTypeRegEx.IsMatch(q.DisplayType))
-                            dt.Columns[q.Text].DataType = typeof(float);
-                    }
+                    return sheet;
                 }
 
-                List<string> QuestionHeaderColumn = new List<string>();
-
-                //token level variables
-                int SentCount = 0;
-                int ThrottledCount = 0;
-                int UnsubscribedCount = 0;
-                int BouncedCount = 0;
-                int ExceptionCount = 0;
-                int AnsweredCount = 0;
-                int CompletedCount = 0;
-                int ErrorCount = 0;
-
-
-                foreach (WXMPartnerMerged m in MergedData)
-                {
-                    int RemindersSent = 0;
-
-                    if (m.Sent)
-                    {
-                        RemindersSent = m.Events.Where(x => x.SentSequence != null)?.Select(x => x.SentSequence)?.Max() == null ? 0 
-                            : (int) m.Events.Where(x => x.SentSequence != null)?.Select(x => x.SentSequence)?.Max(); //Convert.ToInt32(m.SentSequence.Split(" ").LastOrDefault()) - 1;
-                    }
-
-                    List<int> ExceptionSequences = new List<int>();
-
-                    DateTime? LastSentTime = m.Events.Where(x => x.SentSequence == RemindersSent &&
-                                            x.Action?.ToLower() == "sent")?.FirstOrDefault()?.TimeStamp;
-
-                    if (LastSentTime == null)
-                    {
-                        RemindersSent = m.Events.Where(x => x.Action?.ToLower() == "exception")?.Count() == null ? 0 :
-                                            m.Events.Where(x => x.Action?.ToLower() == "exception").Count() == 0 ? 0 :
-                                            m.Events.Where(x => x.Action?.ToLower() == "exception").Count() - 1;
-
-                    }
-                    else
-                    {
-                        var ExceptionAfterSent = m.Events.Where(x => x.Action?.ToLower() == "exception" && x.TimeStamp > LastSentTime);
-
-                        if (ExceptionAfterSent != null && ExceptionAfterSent?.Count() > 0)
-                        {
-                            RemindersSent = RemindersSent + ExceptionAfterSent.Count(); //starts from 0
-                        }
-                    }
-
-                    if (m.Exception)
-                    {
-                        for (int i = 0; i <= RemindersSent; i++)
-                        {
-                            if (m.Events.Where(x => x.SentSequence == i && x.Action?.ToLower() == "sent")?.FirstOrDefault() == null)
-                            {
-                                ExceptionSequences.Add(i);
-                            }
-                        }
-                    }
-
-                    for (int i = 0; i <= RemindersSent; i++)
-                    {
-                        try
-                        {
-                            DataRow row = dt.NewRow();
-
-                            if (QuestionnairesWXM.Where(x => x.Name == m.Questionnaire)?.Count() > 0)
-                                row["Questionnaire"] = QuestionnairesWXM.Where(x => x.Name == m.Questionnaire)?.FirstOrDefault().DisplayName + " (" + m.Questionnaire + ")";
-                            else
-                                row["Questionnaire"] = m.Questionnaire + " (Questionnaire not present)";
-                            row["Response Status"] = i == RemindersSent && m.Answered ? "Answered" :
-                                m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true && 
-                                x.SentSequence == i)?.FirstOrDefault() == null ? "Not Sent" : "Unanswered";
-                            row["Batch ID"] = m.BatchId;
-                            row["Token ID"] = m._id;
-                            row["DeliveryWorkFlowId"] = m.DeliveryWorkFlowId;
-                            row["Response Timestamp"] = m.AnsweredAt.Year == 0001 ? null : i == RemindersSent && m.Answered ? m.AnsweredAt.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD : null;
-
-                            string SentMonth = m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true
-                                && x.SentSequence == i)?.FirstOrDefault() == null ? "Not Sent" :
-                                "Sent in " + m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true
-                                && x.SentSequence == i)?.FirstOrDefault()?.TimeStamp.AddMinutes(TimeZoneOffset).ToString("MMMM");
-                            
-
-                            string AnsweredMonth = i == RemindersSent && m.Answered ? "Answered in " + m.AnsweredAt.AddMinutes(TimeZoneOffset).ToString("MMMM") : "Unanswered";
-
-                            if (ValidMonthLimits?.Keys?.Contains(SentMonth) == true)
-                                SentMonth = ValidMonthLimits[SentMonth];
-
-                            row["Sent Month"] = SentMonth;
-                            row["Answered Month"] = AnsweredMonth;
-
-                            row["Requested At"] = m.CreatedAt.Year == 0001 ? null : m.CreatedAt.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                            row["Last Updated"] = m.LastUpdated.Year == 0001 ? null : m.LastUpdated.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                            row["Requested"] = m.Requested ? "Requested" : "Not Requested";
-                            row["RequestedChannel"] = m.RequestedChannel;
-                            row["Token Created Status"] = m.TokenCreated ? "Token Created" : "Token Not Created";
-                            row["TokenCreatedChannel"] = m.TokenCreatedChannel;
-                            row["Sent Status"] = m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
-                            x.SentSequence == i)?.FirstOrDefault() == null ? "Not Sent" : "Sent";
-                            row["Channel"] = m.Sent ? m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true && 
-                            x.SentSequence == i)?.FirstOrDefault() == null ? "Not Sent" : m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
-                            x.SentSequence == i)?.FirstOrDefault()?.Channel?.Split(":")?.FirstOrDefault() : "Not Sent";
-                            row["SentMessage"] = m.Sent ? m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
-                            x.SentSequence == i)?.FirstOrDefault() == null ? "Not Sent" : m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
-                            x.SentSequence == i)?.FirstOrDefault()?.Message : "Not Sent";
-                            
-                            string TemplateId = m.Sent ? m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
-                            x.SentSequence == i)?.FirstOrDefault() == null ? "Not Sent" : m.Events?.Where(x => x.Action?.ToLower()?.Contains("sent") == true &&
-                            x.SentSequence == i)?.FirstOrDefault()?.MessageTemplate : "Not Sent";
-
-                            string TemplateName = templates?.Where(x => x.Id == TemplateId)?.FirstOrDefault()?.Name;
-
-                            string messagetemplate = null;
-
-                            if (string.IsNullOrEmpty(TemplateName) && TemplateId == "Not Sent")
-                                messagetemplate = TemplateId;
-                            else 
-                            {
-                                if (string.IsNullOrEmpty(TemplateName))
-                                {
-                                    messagetemplate = TemplateId + " (Template not present)";
-                                }
-                                else
-                                {
-                                    messagetemplate = TemplateName + " (" + TemplateId + ")";
-                                }
-                            }
-
-                            row["Message Template"] = messagetemplate;
-                            row["Completion Status"] = i == RemindersSent ? m.Partial ? "Partial" : m.Answered ? "Completed" : "Unanswered" : "Unanswered";
-                            row["Rejected"] = m.Rejected ? "Rejected" : "Not Rejected";
-                            row["RejectedChannel"] = m.RejectedChannel;
-                            row["RejectedMessage"] = m.RejectedMessage;
-                            row["Error Status"] = m.Error ? "Error" : "No Error";
-                            row["ErrorChannel"] = m.ErrorChannel;
-                            row["ErrorMessage"] = m.ErrorMessage;
-                            row["Supressed Status"] = m.Supressed ? "Supressed" : "Not Supressed";
-                            row["SupressedChannel"] = m.SupressedChannel;
-
-                            row["DispatchStatus"] = m.Events?.Where(x => x.Action?.ToLower()?
-                            .Contains("dispatchsuccessful") == true && 
-                            i.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault() != null 
-                            ? "Successful" : m.Events?.Where(x => x.Action?.ToLower()?
-                            .Contains("dispatchunsuccessful") == true &&
-                            i.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault() != null ? "Unsuccessful" 
-                            : "Unsuccessful";
-                            row["DispatchStatusChannel"] = m.Events?.Where(x => (x.Action?.ToLower()?
-                            .Contains("dispatchsuccessful") == true || x.Action?.ToLower()?
-                            .Contains("dispatchunsuccessful") == true) && 
-                            i.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault()?.Channel;
-                            row["DispatchStatusMessage"] = m.Events?.Where(x => (x.Action?.ToLower()?
-                            .Contains("dispatchsuccessful") == true || x.Action?.ToLower()?
-                            .Contains("dispatchunsuccessful") == true) && 
-                            i.ToString() == x.Message?.Split("=")?.LastOrDefault())?.FirstOrDefault()?.LogMessage;
-
-                            row["Throttling Status"] = m.Throttled ? "Throttled" : "Not Throttled";
-                            if (a.DispatchChannels.Where(x => x.DispatchId == m.DispatchId)?.Count() > 0)
-                                row["DispatchId"] = a.DispatchChannels.Where(x => x.DispatchId == m.DispatchId).FirstOrDefault().DispatchName + " (" + m.DispatchId + ")";
-                            else
-                                row["DispatchId"] = m.DispatchId + " (Dispatch not present)";
-                            row["TargetHashed"] = m.TargetHashed;
-                            row["Clicked Unsubscribe"] = m.Unsubscribe ? "Yes" : "No";
-                            row["UnsubscribeChannel"] = m.UnsubscribeChannel;
-                            row["Unsubscribed Status"] = m.Unsubscribed ? "Unsubscribed" : "Not Unsubscribed";
-                            row["Bounced Status"] = m.Bounced ? "Bounced" : "Not Bounced";
-                            row["BouncedChannel"] = m.BouncedChannel;
-                            row["Exception Status"] = ExceptionSequences?.Contains(i) == true ?
-                                "Exception" : "No Exception";
-                            row["ExceptionMessage"] = ExceptionSequences?.Contains(i) == true ? 
-                                m.Events.Where(x => x.Action?.ToLower()?.Contains("exception") == true)?.ToList()[ExceptionSequences.IndexOf(i)]?.Message : 
-                                null;
-                            row["ExceptionCount"] = m.ExceptionCount;
-                            row["ExceptionChannel"] = ExceptionSequences?.Contains(i) == true ?
-                                m.Events.Where(x => x.Action?.ToLower()?.Contains("exception") == true)?.ToList()[ExceptionSequences.IndexOf(i)]?.Channel :
-                                null;
-                            row["Displayed Status"] = m.Displayed ? "Displayed" : "Not Displayed";
-                            row["Message Sequence"] = i == 0 ? "Message 1" : "Message " + (i + 1).ToString();
-
-                            //check if reponses are present and then add them to the respective row
-                            if ((m.Responses != null && m.Answered && i == RemindersSent) || (!m.Answered && m.Responses != null) || (m.Answered && i != RemindersSent))
-                            {
-                                foreach (Response r in m.Responses)
-                                {
-                                    if (m.Answered && i != RemindersSent && 
-                                        (questions.Where(x => x.Id == r.QuestionId)?.FirstOrDefault()?.StaffFill == true || 
-                                        questions.Where(x => x.Id == r.QuestionId)?.FirstOrDefault()?.QuestionTags?.
-                                        Intersect(new List<string> { "cc_zone", "cc_location", "cc_touchpoint" })?.Count() != 0))
-                                    {
-                                        if (r.QuestionText?.ToLower()?.Contains("batchid") == true ||
-                                            r.QuestionText?.ToLower()?.Contains("deliveryplanid") == true ||
-                                            r.QuestionText?.ToLower()?.Contains("token id") == true)
-                                            continue;
-
-                                        if (QuestionIdTextMapping.Keys.Contains(r.QuestionId) || (r.QuestionText != null && dt.Columns.Contains(r.QuestionText)))
-                                        {
-                                            if (r.TextInput == null)
-                                                row[QuestionIdTextMapping[r.QuestionId]] = (float)r.NumberInput;
-                                            else
-                                                row[QuestionIdTextMapping[r.QuestionId]] = r.TextInput;
-                                        }
-                                        else if (QuestionHeaderColumn.Contains(r.QuestionId) || (r.QuestionId != null && dt.Columns.Contains(r.QuestionId)))
-                                        {
-                                            //in case certain questions are not present- this condition is used- down side is data in excel would be text format
-
-                                            row[r.QuestionId] = r.TextInput == null ? r.NumberInput.ToString() : r.TextInput;
-                                        }
-                                        else
-                                        {
-                                            dt.Columns.Add(r.QuestionText == null ? r.QuestionId : r.QuestionText);
-
-                                            QuestionHeaderColumn.Add(r.QuestionId);
-
-                                            row[r.QuestionText == null ? r.QuestionId : r.QuestionText] = r.TextInput == null ? r.NumberInput.ToString() : r.TextInput;
-                                        }
-                                    }
-                                    else if ((m.Responses != null && m.Answered && i == RemindersSent) || (!m.Answered && m.Responses != null))
-                                    {
-                                        if (r.QuestionText?.ToLower()?.Contains("batchid") == true ||
-                                            r.QuestionText?.ToLower()?.Contains("deliveryplanid") == true ||
-                                            r.QuestionText?.ToLower()?.Contains("token id") == true)
-                                            continue;
-
-                                        if (QuestionIdTextMapping.Keys.Contains(r.QuestionId) || (r.QuestionText != null && dt.Columns.Contains(r.QuestionText)))
-                                        {
-                                            if (r.TextInput == null)
-                                                row[QuestionIdTextMapping[r.QuestionId]] = (float)r.NumberInput;
-                                            else
-                                                row[QuestionIdTextMapping[r.QuestionId]] = r.TextInput;
-                                        }
-                                        else if (QuestionHeaderColumn.Contains(r.QuestionId) || (r.QuestionId != null && dt.Columns.Contains(r.QuestionId)))
-                                        {
-                                            //in case certain questions are not present- this condition is used- down side is data in excel would be text format
-
-                                            row[r.QuestionId] = r.TextInput == null ? r.NumberInput.ToString() : r.TextInput;
-                                        }
-                                        else
-                                        {
-                                            dt.Columns.Add(r.QuestionText == null ? r.QuestionId : r.QuestionText);
-
-                                            QuestionHeaderColumn.Add(r.QuestionId);
-
-                                            row[r.QuestionText == null ? r.QuestionId : r.QuestionText] = r.TextInput == null ? r.NumberInput.ToString() : r.TextInput;
-                                        }
-                                    }
-                                }
-                            }
-
-                            dt.Rows.Add(row);
-                        }
-                        catch (Exception ex)
-                        {
-                            continue;
-                        }
-                    }
-
-                    if (m.Sent)
-                        SentCount++;
-                    if (m.Throttled && !m.Sent)
-                        ThrottledCount++;
-                    if (m.Unsubscribed && !m.Sent)
-                        UnsubscribedCount++;
-                    if (m.Bounced && !m.Sent)
-                        BouncedCount++;
-                    if (m.Exception && !m.Sent)
-                        ExceptionCount++;
-                    if (m.Error && !m.Sent)
-                        ErrorCount++;
-                    if (m.Answered)
-                        AnsweredCount++;
-                    if (!m.Partial && m.Answered)
-                        CompletedCount++;
-                }
-
-                List<string> DataForMonths = dt.AsEnumerable().Select(x => x["Sent Month"]?.ToString())?.Distinct()?.ToList();
-
-                string DataNotPresentForMonthsMessage = "";
-
-                foreach (string mon in ValidMonthLimits.Values)
-                {
-                    if (DataForMonths?.Where(x => x?.Contains(mon?.Split(" ")?.FirstOrDefault()) == true)?.Count() != 0)
-                        continue;
-                    else
-                        DataNotPresentForMonthsMessage = DataNotPresentForMonthsMessage + mon + ", ";
-                }
-
-                dt.DefaultView.Sort = "Token ID";
-                dt = dt.DefaultView.ToTable();
-
-                DataTable dt2 = new DataTable();
-
-                try
-                {
-                   dt2 = dt.AsEnumerable().
-                   Where(r => r.Field<string>("Sent Status") == "Sent").
-                   OrderByDescending(y => y.Field<String>("Questionnaire")).
-                   CopyToDataTable();
-                }
-                catch
-                {
-                    //flow for in case there is no sent data at all.. it'll hit an exception here
-                    var sh = package.Workbook.Worksheets.Add("Raw Data All");
-
-                    sh.Cells["A1"].LoadFromDataTable(dt, true, OfficeOpenXml.Table.TableStyles.Medium6);
-
-                    sh.Cells["C1"].AddComment("Message 1 is the first invite and the reminders follow", "WXM team");
-                    sh.Cells["C1"].Comment.AutoFit = true;
-
-                    sh.Cells["T1"].AddComment("Whether the survey was completed or not if answered", "WXM team");
-                    sh.Cells["T1"].Comment.AutoFit = true;
-
-                    sh.Cells["AG1"].AddComment("Whether the clicked on unsubscribe", "WXM team");
-                    sh.Cells["AG1"].Comment.AutoFit = true;
-
-                    sh.Cells["AI1"].AddComment("Whether the survey was sent to an unsubscribed user", "WXM team");
-                    sh.Cells["AI1"].Comment.AutoFit = true;
-
-                    sh.Cells["AM1"].AddComment("Total exceptions for this particular token", "WXM team");
-                    sh.Cells["AM1"].Comment.AutoFit = true;
-
-                    return new Tuple<byte[], bool>( package.GetAsByteArray(), false);
-                }
-
-                dt2.DefaultView.Sort = "Token ID";
-                dt2 = dt2.DefaultView.ToTable();
-
-                DataTable dt3 = dt.AsEnumerable().
-                    Where(r => r.Field<string>("Message Sequence") == "Message 1" &&
-                    r.Field<string>("Sent Status") == "Sent").
-                    OrderByDescending(y => y.Field<String>("Questionnaire")).
-                    CopyToDataTable();
-
-                dt3.DefaultView.Sort = "Token ID";
-                dt3 = dt3.DefaultView.ToTable();
-
-                DataTable dt4 = dt.AsEnumerable().
-                    Where(r => r.Field<string>("Message Sequence") == "Message 1").
-                    OrderByDescending(y => y.Field<String>("Questionnaire")).
-                    CopyToDataTable();
-
-                dt4.DefaultView.Sort = "Token ID";
-                dt4 = dt4.DefaultView.ToTable();
-
-                #endregion
-
-                var sheet2 = package.Workbook.Worksheets.Add("Raw Data Invites Sent");
-
-                sheet2.Cells["A1"].LoadFromDataTable(dt2, true, OfficeOpenXml.Table.TableStyles.Medium6);
-
-                sheet2.Cells["C1"].AddComment("Message 1 is the first invite and the reminders follow", "WXM team");
-                sheet2.Cells["C1"].Comment.AutoFit = true;
-
-                sheet2.Cells["T1"].AddComment("Whether the survey was completed or not if answered", "WXM team");
-                sheet2.Cells["T1"].Comment.AutoFit = true;
-
-                sheet2.Cells["AF1"].AddComment("Whether the clicked on unsubscribe", "WXM team");
-                sheet2.Cells["AF1"].Comment.AutoFit = true;
-
-                sheet2.Cells["AH1"].AddComment("Whether the survey was sent to an unsubscribed user", "WXM team");
-                sheet2.Cells["AH1"].Comment.AutoFit = true;
-
-                sheet2.Cells["AM1"].AddComment("Total exceptions for this particular token", "WXM team");
-                sheet2.Cells["AM1"].Comment.AutoFit = true;
-
-                var sheet5 = package.Workbook.Worksheets.Add("Raw Data All");
-
-                sheet5.Cells["A1"].LoadFromDataTable(dt, true, OfficeOpenXml.Table.TableStyles.Medium6);
-
-                sheet5.Cells["C1"].AddComment("Message 1 is the first invite and the reminders follow", "WXM team");
-                sheet5.Cells["C1"].Comment.AutoFit = true;
-
-                sheet5.Cells["T1"].AddComment("Whether the survey was completed or not if answered", "WXM team");
-                sheet5.Cells["T1"].Comment.AutoFit = true;
-
-                sheet5.Cells["AG1"].AddComment("Whether the clicked on unsubscribe", "WXM team");
-                sheet5.Cells["AG1"].Comment.AutoFit = true;
-
-                sheet5.Cells["AI1"].AddComment("Whether the survey was sent to an unsubscribed user", "WXM team");
-                sheet5.Cells["AI1"].Comment.AutoFit = true;
-
-                sheet5.Cells["AM1"].AddComment("Total exceptions for this particular token", "WXM team");
-                sheet5.Cells["AM1"].Comment.AutoFit = true;
+                var package = new ExcelPackage();
+
+                int TimeZoneOffset = (int)(profile.TimeZoneOffset == null ? settings.TimeZoneOffset : profile.TimeZoneOffset);
+                string UTCTZD = TimeZoneOffset >= 0 ? "UTC+" : "UTC-";
+                UTCTZD = UTCTZD + Math.Abs(Convert.ToInt32(TimeZoneOffset / 60)).ToString() + ":" + Math.Abs(TimeZoneOffset % 60).ToString();
 
                 #region Overview sheet
 
@@ -726,672 +1117,772 @@ namespace DPReporting
                 OverviewSheet.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
                 FormatHeader(OverviewSheet.Cells[2, 1, 2, 8], 4);
 
+                OverviewSheet = MakeOverviewHeaders(OverviewSheet, 4);
+
+                int SentCount = AllSplits.Where(x => x.id == "Total")?.Count() != 0 ?
+                                AllSplits.Where(x => x.id == "Total").FirstOrDefault().SentCount : 0;
+                int ThrottledCount = AllSplits.Where(x => x.id == "Total")?.Count() != 0 ?
+                                AllSplits.Where(x => x.id == "Total").FirstOrDefault().ThrottledCount : 0;
+                int UnsubscribedCount = AllSplits.Where(x => x.id == "Total")?.Count() != 0 ?
+                                AllSplits.Where(x => x.id == "Total").FirstOrDefault().UnsubscribedCount : 0;
+                int BouncedCount = AllSplits.Where(x => x.id == "Total")?.Count() != 0 ?
+                                AllSplits.Where(x => x.id == "Total").FirstOrDefault().BouncedCount : 0;
+                int ExceptionCount = AllSplits.Where(x => x.id == "Total")?.Count() != 0 ?
+                                AllSplits.Where(x => x.id == "Total").FirstOrDefault().ExceptionCount : 0;
+                int AnsweredCount = AllSplits.Where(x => x.id == "Total")?.Count() != 0 ?
+                                AllSplits.Where(x => x.id == "Total").FirstOrDefault().AnsweredCount : 0;
+                int CompletedCount = AllSplits.Where(x => x.id == "Total")?.Count() != 0 ?
+                                AllSplits.Where(x => x.id == "Total").FirstOrDefault().CompletedCount : 0;
+
                 int total = SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount;
 
-                OverviewSheet.Cells["B4"].Value = "Total Invites Requested";
-                OverviewSheet.Column(9).Width = 16;
-                OverviewSheet.Cells["B5"].Value = SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount;
-                OverviewSheet.Cells["B4"].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                OverviewSheet.Cells["B4"].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));
-                OverviewSheet.Cells["B4"].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
-                OverviewSheet.Cells[4, 2, 4, 9].Style.Font.Bold = true;
-                OverviewSheet.Cells[4, 2, 4, 9].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
-                OverviewSheet.Cells[4, 2, 4, 9].Style.WrapText = true;
-
-                OverviewSheet.Cells["C4"].Value = "Throttled";
-                OverviewSheet.Column(5).Width = 16;
-                OverviewSheet.Cells["C5"].Value = ThrottledCount;
-                OverviewSheet.Cells["D4"].Value = "Unsubscribed";
-                OverviewSheet.Column(6).Width = 16;
-                OverviewSheet.Cells["D5"].Value = UnsubscribedCount;
-                OverviewSheet.Cells["E4"].Value = "Bounced";
-                OverviewSheet.Column(7).Width = 16;
-                OverviewSheet.Cells["E5"].Value = BouncedCount;
-                OverviewSheet.Cells["F4"].Value = "Exception";
-                OverviewSheet.Column(8).Width = 16;
-                OverviewSheet.Cells["F5"].Value = ExceptionCount;
-
-                OverviewSheet.Cells[4, 3, 4, 6].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                OverviewSheet.Cells[4, 3, 4, 6].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(192, 0, 0));
-                OverviewSheet.Cells[4, 3, 4, 6].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
-                OverviewSheet.Cells[4, 3, 4, 6].Style.Font.Bold = true;
-                OverviewSheet.Cells[4, 3, 4, 6].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
-                OverviewSheet.Cells[4, 3, 4, 6].Style.WrapText = true;
-
-                OverviewSheet.Cells["G4"].Value = "Total Invites Sent";
-                OverviewSheet.Column(2).Width = 16;
-                OverviewSheet.Cells["G5"].Value = SentCount;
-                OverviewSheet.Cells["H4"].Value = "Total Invites Answered(Out of Total Sent)";
-                OverviewSheet.Column(3).Width = 16;
-                OverviewSheet.Cells["H5"].Value = AnsweredCount;
-                OverviewSheet.Cells["I4"].Value = "Completed Responses(Out of Total Answered)";
-                OverviewSheet.Column(4).Width = 16;
-                OverviewSheet.Cells["I5"].Value = CompletedCount;
-
-                OverviewSheet.Cells[4, 7, 4, 9].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                OverviewSheet.Cells[4, 7, 4, 9].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(84, 130, 53));
-                OverviewSheet.Cells[4, 7, 4, 9].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
-                OverviewSheet.Cells[4, 7, 4, 9].Style.Font.Bold = true;
-                OverviewSheet.Cells[4, 7, 4, 9].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
-                OverviewSheet.Cells[4, 7, 4, 9].Style.WrapText = true;
-
-                OverviewSheet.Row(4).Height = 45;
+                OverviewSheet.Cells[5, 2].Value = SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount;
+                OverviewSheet.Cells[5, 3].Value = ThrottledCount;
+                OverviewSheet.Cells[5, 4].Value = UnsubscribedCount;
+                OverviewSheet.Cells[5, 5].Value = BouncedCount;
+                OverviewSheet.Cells[5, 6].Value = ExceptionCount;
+                OverviewSheet.Cells[5, 7].Value = SentCount;
+                OverviewSheet.Cells[5, 8].Value = AnsweredCount;
+                OverviewSheet.Cells[5, 9].Value = CompletedCount;
 
                 if (total != 0)
                 {
-                    OverviewSheet.Cells["G6"].Value = (double)SentCount / total;
-                    OverviewSheet.Cells["H6"].Value = (double)AnsweredCount / SentCount;
-                    OverviewSheet.Cells["I6"].Value = (double)CompletedCount / AnsweredCount;
-                    OverviewSheet.Cells["C6"].Value = (double)ThrottledCount / total;
-                    OverviewSheet.Cells["D6"].Value = (double)UnsubscribedCount / total;
-                    OverviewSheet.Cells["E6"].Value = (double)BouncedCount / total;
-                    OverviewSheet.Cells["F6"].Value = (double)ExceptionCount / total;
-                    OverviewSheet.Cells["B6"].Value = (double)(SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount) / total;
+                    OverviewSheet.Cells[6, 7].Value = (double)SentCount / total;
+
+                    if (SentCount != 0)
+                        OverviewSheet.Cells[6, 8].Value = (double)AnsweredCount / SentCount;
+                    else
+                    {
+                        OverviewSheet.Cells[6, 8].Value = "NA";
+                        OverviewSheet.Cells[6, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+
+                    if (AnsweredCount != 0)
+                        OverviewSheet.Cells[6, 9].Value = (double)CompletedCount / AnsweredCount;
+                    else
+                    {
+                        OverviewSheet.Cells[6, 9].Value = "NA";
+                        OverviewSheet.Cells[6, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+
+                    OverviewSheet.Cells[6, 3].Value = (double)ThrottledCount / total;
+                    OverviewSheet.Cells[6, 4].Value = (double)UnsubscribedCount / total;
+                    OverviewSheet.Cells[6, 5].Value = (double)BouncedCount / total;
+                    OverviewSheet.Cells[6, 6].Value = (double)ExceptionCount / total;
+                    OverviewSheet.Cells[6, 2].Value = (double)(SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount) / total;
+                }
+                else
+                {
+                    OverviewSheet.Cells[6, 7].Value = "NA";
+                    OverviewSheet.Cells[6, 8].Value = "NA";
+                    OverviewSheet.Cells[6, 9].Value = "NA";
+                    OverviewSheet.Cells[6, 3].Value = "NA";
+                    OverviewSheet.Cells[6, 4].Value = "NA";
+                    OverviewSheet.Cells[6, 5].Value = "NA";
+                    OverviewSheet.Cells[6, 6].Value = "NA";
+                    OverviewSheet.Cells[6, 2].Value = "NA";
+
+                    OverviewSheet.Cells[6, 2, 6, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                 }
 
                 OverviewSheet.Cells[6, 2, 6, 9].Style.Numberformat.Format = "#0.00%";
 
-                OverviewSheet.Cells["A5"].Value = "Count";
-                OverviewSheet.Column(1).Width = 21;
-                OverviewSheet.Cells["A5"].Style.Font.Bold = true;
-                OverviewSheet.Cells["A6"].Value = "Percentage";
-                OverviewSheet.Cells["A6"].Style.Font.Bold = true;
+                OverviewSheet.Cells[5, 1].Value = "Total Count";
+                OverviewSheet.Cells[5, 1].Style.Font.Bold = true;
+                OverviewSheet.Cells[6, 1].Value = "Total Percentage";
+                OverviewSheet.Cells[6, 1].Style.Font.Bold = true;
                 OverviewSheet.Cells[5, 1, 6, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                OverviewSheet.Cells[5,1,6,1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 242, 204));
+                OverviewSheet.Cells[5, 1, 6, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));
+                OverviewSheet.Cells[5, 1, 6, 1].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
 
-                #endregion
+                int r = 8;
 
-                var dataRange = sheet2.Cells[sheet2.Dimension.Address];
-                ExcelPivotTable pivotTable = null;
+                OverviewSheet.Cells[r, 1, r, 8].Merge = true;
+                OverviewSheet.Cells[r, 1, r, 8].Value = "Overall Performance Split by Data Source";
+                OverviewSheet.Cells[r, 1, r, 8].Style.Font.Bold = true;
+                FormatHeader(OverviewSheet.Cells[r, 1, r, 8], 2);
 
-                #region Pivot 1
+                r++;
 
-                try
+                OverviewSheet = MakeOverviewHeaders(OverviewSheet, r);
+
+                r++;
+
+                var FileSplits = AllSplits.Where(x => x.DisplayName?.Contains(".xlsx") == true || x.DisplayName?.Contains(".csv") == true);
+
+                if (FileSplits?.Count() > 0)
                 {
-                    //pivot 1
-                    var wsPivot1 = package.Workbook.Worksheets.Add("Split by Channel");
-
-                    wsPivot1.Cells[1, 1, 1, 8].Merge = true;
-                    wsPivot1.Cells[1, 1, 1, 8].Value = "Channel Performance Report";
-                    wsPivot1.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                    FormatHeader(wsPivot1.Cells[1, 1, 1, 8], 2);
-
-                    wsPivot1.Cells[2, 1, 2, 8].Merge = true;
-                    wsPivot1.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                    FormatHeader(wsPivot1.Cells[2, 1, 2, 8], 4);
-
-                    wsPivot1.Cells[3, 1, 3, 8].Merge = true;
-                    wsPivot1.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                    FormatHeader(wsPivot1.Cells[3, 1, 3, 8], 4);
-                    wsPivot1.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                    wsPivot1.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot1.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                    wsPivot1.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                    //dataRange.AutoFitColumns();
-                    pivotTable = wsPivot1.PivotTables.Add(wsPivot1.Cells["A7"], dataRange, "AnsweredByChannel");
-
-                    pivotTable.ConfigurePivot("Questionnaire", "Channel", "Channel");
-
-                    #region copy text
-
-                    wsPivot1.Cells[7, 5, 14, 14].Merge = true;
-                    wsPivot1.Cells[7, 5, 14, 14].Value = "This pivot table contains data of total invites that " +
-                        "were sent during the set date range split by Channels. " +
-                        "The total invites sent excludes requests that were throttled OR unsubscribed. " +
-                        "The total invites sent for each channel include multiple messages sent for the " +
-                        "same token as follow up messages, and the total number of invites sent may be " +
-                        "more than actual unique invites (tokens) sent. \r\n" +
-                        "The data is further split as Answered or Unanswered to show the overall " +
-                        "response rate based on invites that were Answered. If partial response " +
-                        "collection is switched ON, then Answered responses will be further split into " +
-                        "Completed and Partial, that will indicate the completion rates for Invites that " +
-                        "were completely answered.";
-                    wsPivot1.Cells[7, 5, 14, 14].Style.WrapText = true;
-                    wsPivot1.Cells[7, 5, 14, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[7, 5, 14, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot1.Cells[16, 5, 17, 14].Merge = true;
-                    wsPivot1.Cells[16, 5, 17, 14].Value = "This pivot table is linked to data in  " +
-                        "the sheet \"Raw Data Invites Sent\". Please do not edit that sheet. " +
-                        "The following columns are being used from the \"Raw Data Invites Sent\" " +
-                        "sheet for this pivot table";
-                    wsPivot1.Cells[16, 5, 17, 14].Style.Font.Italic = true;
-                    wsPivot1.Cells[16, 5, 17, 14].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot1.Cells[16, 5, 17, 14].Style.WrapText = true;
-                    wsPivot1.Cells[16, 5, 17, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[16, 5, 17, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot1.Cells[19, 5, 20, 5].Merge = true;
-                    wsPivot1.Cells[19, 5, 20, 5].Value = "1st level";
-                    wsPivot1.Cells[19, 5, 20, 5].Style.WrapText = true;
-                    wsPivot1.Cells[19, 5, 20, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[19, 5, 20, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    wsPivot1.Cells[19, 6, 20, 14].Merge = true;
-                    wsPivot1.Cells[19, 6, 20, 14].Value = "Channel- The medium through which the Invite was sent. For example- \"SMS\" or \"Email\"";
-                    wsPivot1.Cells[19, 6, 20, 14].Style.WrapText = true;
-                    wsPivot1.Cells[19, 6, 20, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[19, 6, 20, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot1.Cells[21, 5, 22, 5].Merge = true;
-                    wsPivot1.Cells[21, 5, 22, 5].Value = "2nd level";
-                    wsPivot1.Cells[21, 5, 22, 5].Style.WrapText = true;
-                    wsPivot1.Cells[21, 5, 22, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[21, 5, 22, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    wsPivot1.Cells[21, 6, 22, 14].Merge = true;
-                    wsPivot1.Cells[21, 6, 22, 14].Value = "Response Status- Tells you whether an invite sent was \"Answered\" or \"Unanswered\"";
-                    wsPivot1.Cells[21, 6, 22, 14].Style.WrapText = true;
-                    wsPivot1.Cells[21, 6, 22, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[21, 6, 22, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot1.Cells[23, 5, 24, 5].Merge = true;
-                    wsPivot1.Cells[23, 5, 24, 5].Value = "3rd level";
-                    wsPivot1.Cells[23, 5, 24, 5].Style.WrapText = true;
-                    wsPivot1.Cells[23, 5, 24, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[23, 5, 24, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    wsPivot1.Cells[23, 6, 24, 14].Merge = true;
-                    wsPivot1.Cells[23, 6, 24, 14].Value = "Completion Status- Tells you whether an invite sent was \"Completed\", \"Partial\" or \"Unanswered\"";
-                    wsPivot1.Cells[23, 6, 24, 14].Style.WrapText = true;
-                    wsPivot1.Cells[23, 6, 24, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot1.Cells[23, 6, 24, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    #endregion
-                }
-                catch (Exception ex)
-                {
-                    log.logMessage += $"Error generating the excel sheet with channel metrics {ex.Message}    {ex.StackTrace}";
-                }
-                #endregion
-
-                ExcelWorksheet DoDefaultCopy(ExcelWorksheet sheet, string SplitBy)
-                {
-                    sheet.Cells[7, 5, 14, 14].Merge = true;
-                    sheet.Cells[7, 5, 14, 14].Value = "This pivot table contains data of total invites that " +
-                        "were sent during the set date range split by " + SplitBy +
-                        "The total invites sent excludes requests that were throttled OR unsubscribed. \r\n" +
-                        "The data is further split as Answered or Unanswered to show the overall " +
-                        "response rate based on invites that were Answered. If partial response " +
-                        "collection is switched ON, then Answered responses will be further split into " +
-                        "Completed and Partial, that will indicate the completion rates for Invites that " +
-                        "were completely answered.";
-                    sheet.Cells[7, 5, 14, 14].Style.WrapText = true;
-                    sheet.Cells[7, 5, 14, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    sheet.Cells[7, 5, 14, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    sheet.Cells[16, 5, 17, 14].Merge = true;
-                    sheet.Cells[16, 5, 17, 14].Value = "This pivot table is linked to data in  " +
-                        "the sheet \"Raw Data Invites Sent\". Please do not edit that sheet. " +
-                        "The following columns are being used from the \"Raw Data Invites Sent\" " +
-                        "sheet for this pivot table";
-                    sheet.Cells[16, 5, 17, 14].Style.Font.Italic = true;
-                    sheet.Cells[16, 5, 17, 14].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    sheet.Cells[16, 5, 17, 14].Style.WrapText = true;
-                    sheet.Cells[16, 5, 17, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
-
-                    string firstLevel = "";
-
-                    switch (SplitBy.ToLower())
+                    foreach (AggregatedSplits q in FileSplits)
                     {
-                        case "questionnaire":
-                            firstLevel = "Questionnaire- The questionnaire configured in WXM linked to the invite sent";
-                            break;
-                        case "dispatch":
-                            firstLevel = "DispatchId- The unique dispatches for invites sent using WXM";
-                            break;
-                        case "message template":
-                            firstLevel = "Message Template- The message template used in the invite";
-                            break;
-                        case "zone":
-                            firstLevel = "Zone- The zone configured in WXM for which the invite was sent";
-                            break;
-                        case "location":
-                            firstLevel = "Locations- The location configured in WXM for which the invite was sent";
-                            break;
-                        case "touch point":
-                            firstLevel = "Touch points- The touchpoint configured in WXM for which the invite was sent";
-                            break;
-                        case "sent sequence":
-                            firstLevel = "Message Sequence- The sequence at which the invite was sent (Whether initial invite or reminder)";
-                            break;
-                        default:
-                            break;
-                    }
-
-                    sheet.Cells[19, 5, 20, 5].Merge = true;
-                    sheet.Cells[19, 5, 20, 5].Value = "1st level";
-                    sheet.Cells[19, 5, 20, 5].Style.WrapText = true;
-                    sheet.Cells[19, 5, 20, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    sheet.Cells[19, 5, 20, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    sheet.Cells[19, 6, 20, 14].Merge = true;
-                    sheet.Cells[19, 6, 20, 14].Value = firstLevel;
-                    sheet.Cells[19, 6, 20, 14].Style.WrapText = true;
-                    sheet.Cells[19, 6, 20, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    sheet.Cells[19, 6, 20, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    sheet.Cells[21, 5, 22, 5].Merge = true;
-                    sheet.Cells[21, 5, 22, 5].Value = "2nd level";
-                    sheet.Cells[21, 5, 22, 5].Style.WrapText = true;
-                    sheet.Cells[21, 5, 22, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    sheet.Cells[21, 5, 22, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    sheet.Cells[21, 6, 22, 14].Merge = true;
-                    sheet.Cells[21, 6, 22, 14].Value = "Response Status - Tells you whether an invite sent was \"Answered\" or \"Unanswered\"";
-                    sheet.Cells[21, 6, 22, 14].Style.WrapText = true;
-                    sheet.Cells[21, 6, 22, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    sheet.Cells[21, 6, 22, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    sheet.Cells[23, 5, 24, 5].Merge = true;
-                    sheet.Cells[23, 5, 24, 5].Value = "3rd level";
-                    sheet.Cells[23, 5, 24, 5].Style.WrapText = true;
-                    sheet.Cells[23, 5, 24, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    sheet.Cells[23, 5, 24, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    sheet.Cells[23, 6, 24, 14].Merge = true;
-                    sheet.Cells[23, 6, 24, 14].Value = "Completion Status - Tells you whether an invite sent was \"Completed\", \"Partial\" or \"Unanswered\"";
-                    sheet.Cells[23, 6, 24, 14].Style.WrapText = true;
-                    sheet.Cells[23, 6, 24, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    sheet.Cells[23, 6, 24, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    return sheet;
-                }
-
-                #region Pivot 2
-
-                try
-                {
-                    //pivot 2
-                    var wsPivot2 = package.Workbook.Worksheets.Add("Split by Questionnaires");
-
-                    wsPivot2.Cells[1, 1, 1, 8].Merge = true;
-                    wsPivot2.Cells[1, 1, 1, 8].Value = "Questionnaires Performance Report";
-                    wsPivot2.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                    FormatHeader(wsPivot2.Cells[1, 1, 1, 8], 2);
-
-                    wsPivot2.Cells[2, 1, 2, 8].Merge = true;
-                    wsPivot2.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                    FormatHeader(wsPivot2.Cells[2, 1, 2, 8], 4);
-
-                    wsPivot2.Cells[3, 1, 3, 8].Merge = true;
-                    wsPivot2.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                    FormatHeader(wsPivot2.Cells[3, 1, 3, 8], 4);
-                    wsPivot2.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                    wsPivot2.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot2.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                    wsPivot2.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                    //dataRange.AutoFitColumns();
-                    pivotTable = wsPivot2.PivotTables.Add(wsPivot2.Cells["A7"], dataRange, "AnsweredByQnr");
-
-                    pivotTable.ConfigurePivot("DeliveryWorkFlowId", "Questionnaire", "Questionnaire");
-
-                    wsPivot2 = DoDefaultCopy(wsPivot2, "Questionnaire");
-                }
-                catch (Exception ex)
-                {
-                    log.logMessage += $"Error generating the excel sheet with Questionnaire metrics {ex.Message}    {ex.StackTrace}";
-                }
-                #endregion
-
-                #region Pivot 3
-
-                try
-                {
-                    //pivot 3
-                    var wsPivot3 = package.Workbook.Worksheets.Add("Split by Month");
-
-                    wsPivot3.Cells[1, 1, 1, 8].Merge = true;
-                    wsPivot3.Cells[1, 1, 1, 8].Value = "Monthly Performance Report";
-                    wsPivot3.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                    FormatHeader(wsPivot3.Cells[1, 1, 1, 8], 2);
-
-                    wsPivot3.Cells[2, 1, 2, 8].Merge = true;
-                    wsPivot3.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                    FormatHeader(wsPivot3.Cells[2, 1, 2, 8], 4);
-
-                    wsPivot3.Cells[3, 1, 3, 8].Merge = true;
-                    wsPivot3.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                    FormatHeader(wsPivot3.Cells[3, 1, 3, 8], 4);
-                    wsPivot3.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                    wsPivot3.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot3.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                    wsPivot3.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                    //dataRange.AutoFitColumns();
-                    pivotTable = wsPivot3.PivotTables.Add(wsPivot3.Cells["A7"], dataRange, "AnsweredByMonth");
-
-                    pivotTable.ConfigurePivot("Questionnaire", "Sent Month", "Month", false, true, "Total Sent", "Answered Month");
-
-                    #region copy text
-
-                    if (!string.IsNullOrEmpty(DataNotPresentForMonthsMessage))
-                    {
-                        wsPivot3.Cells[5, 5, 5, 14].Merge = true;
-                        wsPivot3.Cells[5, 5, 5, 14].Value = "* No data available for " + DataNotPresentForMonthsMessage;
-                        wsPivot3.Cells[5, 5, 5, 14].Style.Font.Italic = true;
-                        wsPivot3.Cells[5, 5, 5, 14].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    }
-
-                    wsPivot3.Cells[7, 5, 14, 14].Merge = true;
-                    wsPivot3.Cells[7, 5, 14, 14].Value = "This pivot table contains data of total invites that " +
-                        "were sent during the set date range split by Months. The total invites sent " +
-                        "excludes requests that were throttled OR unsubscribed. Some months in the " +
-                        "selected date range may not have full month data. See table for details. \r\n" +
-                        "The data is further split as Answered or Unanswered to show the overall " +
-                        "response rate based on invites that were Answered. If partial response collection " +
-                        "is switched ON, then Answered responses will be further split into Completed and " +
-                        "Partial, that will indicate the completion rates for Invites that were completely " +
-                        "answered.";
-                    wsPivot3.Cells[7, 5, 14, 14].Style.WrapText = true;
-                    wsPivot3.Cells[7, 5, 14, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[7, 5, 14, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot3.Cells[16, 5, 17, 14].Merge = true;
-                    wsPivot3.Cells[16, 5, 17, 14].Value = "This pivot table is linked to data in  " +
-                        "the sheet \"Raw Data Invites Sent\". Please do not edit that sheet. " +
-                        "The following columns are being used from the \"Raw Data Invites Sent\" " +
-                        "sheet for this pivot table";
-                    wsPivot3.Cells[16, 5, 17, 14].Style.Font.Italic = true;
-                    wsPivot3.Cells[16, 5, 17, 14].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot3.Cells[16, 5, 17, 14].Style.WrapText = true;
-                    wsPivot3.Cells[16, 5, 17, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[16, 5, 17, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot3.Cells[19, 5, 20, 5].Merge = true;
-                    wsPivot3.Cells[19, 5, 20, 5].Value = "1st level";
-                    wsPivot3.Cells[19, 5, 20, 5].Style.WrapText = true;
-                    wsPivot3.Cells[19, 5, 20, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[19, 5, 20, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    wsPivot3.Cells[19, 6, 20, 14].Merge = true;
-                    wsPivot3.Cells[19, 6, 20, 14].Value = "Month- The month at which the invite was sent";
-                    wsPivot3.Cells[19, 6, 20, 14].Style.WrapText = true;
-                    wsPivot3.Cells[19, 6, 20, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[19, 6, 20, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot3.Cells[21, 5, 22, 5].Merge = true;
-                    wsPivot3.Cells[21, 5, 22, 5].Value = "2nd level";
-                    wsPivot3.Cells[21, 5, 22, 5].Style.WrapText = true;
-                    wsPivot3.Cells[21, 5, 22, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[21, 5, 22, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    wsPivot3.Cells[21, 6, 22, 14].Merge = true;
-                    wsPivot3.Cells[21, 6, 22, 14].Value = "Response Status- Tells you whether an invite sent was \"Answered\" or \"Unanswered\"";
-                    wsPivot3.Cells[21, 6, 22, 14].Style.WrapText = true;
-                    wsPivot3.Cells[21, 6, 22, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[21, 6, 22, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    wsPivot3.Cells[23, 5, 24, 5].Merge = true;
-                    wsPivot3.Cells[23, 5, 24, 5].Value = "3rd level";
-                    wsPivot3.Cells[23, 5, 24, 5].Style.WrapText = true;
-                    wsPivot3.Cells[23, 5, 24, 5].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[23, 5, 24, 5].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-                    wsPivot3.Cells[23, 6, 24, 14].Merge = true;
-                    wsPivot3.Cells[23, 6, 24, 14].Value = "Completion Status- Tells you whether an invite sent was \"Completed\", \"Partial\" or \"Unanswered\"";
-                    wsPivot3.Cells[23, 6, 24, 14].Style.WrapText = true;
-                    wsPivot3.Cells[23, 6, 24, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                    wsPivot3.Cells[23, 6, 24, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
-
-                    #endregion
-                }
-                catch (Exception ex)
-                {
-                    log.logMessage += $"Error generating the excel sheet with Month metrics {ex.Message}    {ex.StackTrace}";
-                }
-
-
-                #endregion
-
-                #region Pivot 4
-
-                try
-                {
-                    //pivot 4
-                    var wsPivot4 = package.Workbook.Worksheets.Add("Split by Dispatch");
-
-                    wsPivot4.Cells[1, 1, 1, 8].Merge = true;
-                    wsPivot4.Cells[1, 1, 1, 8].Value = "Dispatch Performance Report";
-                    wsPivot4.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                    FormatHeader(wsPivot4.Cells[1, 1, 1, 8], 2);
-
-                    wsPivot4.Cells[2, 1, 2, 8].Merge = true;
-                    wsPivot4.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                    FormatHeader(wsPivot4.Cells[2, 1, 2, 8], 4);
-
-                    wsPivot4.Cells[3, 1, 3, 8].Merge = true;
-                    wsPivot4.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                    FormatHeader(wsPivot4.Cells[3, 1, 3, 8], 4);
-                    wsPivot4.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                    wsPivot4.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot4.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                    wsPivot4.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                    //dataRange.AutoFitColumns();
-                    pivotTable = wsPivot4.PivotTables.Add(wsPivot4.Cells["A7"], dataRange, "AnsweredByDispatch");
-
-                    pivotTable.ConfigurePivot("Questionnaire", "DispatchId", "DispatchId");
-
-                    List<string> UniqueDispatches = dt.AsEnumerable().Select(x => x["DispatchId"]?.ToString())?.Distinct()?.ToList();
-
-                    wsPivot4 = DoDefaultCopy(wsPivot4, "dispatch");
-                }
-                catch (Exception ex)
-                {
-                    log.logMessage += $"Error generating the excel sheet with DispatchId metrics {ex.Message}    {ex.StackTrace}";
-                }
-
-                #endregion
-
-                #region Pivot 5
-
-                try
-                {
-                    //pivot 5
-                    var wsPivot5 = package.Workbook.Worksheets.Add("Split by Message Template");
-
-                    wsPivot5.Cells[1, 1, 1, 8].Merge = true;
-                    wsPivot5.Cells[1, 1, 1, 8].Value = "Message Template Performance Report";
-                    wsPivot5.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                    FormatHeader(wsPivot5.Cells[1, 1, 1, 8], 2);
-
-                    wsPivot5.Cells[2, 1, 2, 8].Merge = true;
-                    wsPivot5.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                    FormatHeader(wsPivot5.Cells[2, 1, 2, 8], 4);
-
-                    wsPivot5.Cells[3, 1, 3, 8].Merge = true;
-                    wsPivot5.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                    FormatHeader(wsPivot5.Cells[3, 1, 3, 8], 4);
-                    wsPivot5.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                    wsPivot5.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot5.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                    wsPivot5.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                    //dataRange.AutoFitColumns();
-                    pivotTable = wsPivot5.PivotTables.Add(wsPivot5.Cells["A7"], dataRange, "AnsweredByMessageTemplate");
-
-                    pivotTable.ConfigurePivot("Questionnaire", "Message Template", "Message Template");
-
-                    List<string> UniqueTemplates = dt.AsEnumerable().Select(x => x["Message Template"]?.ToString())?.Distinct()?.ToList();
-
-                    wsPivot5 = DoDefaultCopy(wsPivot5, "message template");
-                }
-                catch (Exception ex)
-                {
-                    log.logMessage += $"Error generating the excel sheet with Message Template metrics {ex.Message}    {ex.StackTrace}";
-                }
-
-                #endregion
-
-                #region Pivot 7
-
-                try
-                {
-                    //pivot 7
-                    var wsPivot7 = package.Workbook.Worksheets.Add("Split by Sent Sequence");
-
-                    wsPivot7.Cells[1, 1, 1, 8].Merge = true;
-                    wsPivot7.Cells[1, 1, 1, 8].Value = "Sent Sequence Performance Report";
-                    wsPivot7.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                    FormatHeader(wsPivot7.Cells[1, 1, 1, 8], 2);
-
-                    wsPivot7.Cells[2, 1, 2, 8].Merge = true;
-                    wsPivot7.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                    FormatHeader(wsPivot7.Cells[2, 1, 2, 8], 4);
-
-                    wsPivot7.Cells[3, 1, 3, 8].Merge = true;
-                    wsPivot7.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                    FormatHeader(wsPivot7.Cells[3, 1, 3, 8], 4);
-                    wsPivot7.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                    wsPivot7.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                    wsPivot7.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                    wsPivot7.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                    //dataRange.AutoFitColumns();
-                    pivotTable = wsPivot7.PivotTables.Add(wsPivot7.Cells["A7"], dataRange, "AnsweredBySequence");
-
-                    pivotTable.ConfigurePivot("Questionnaire", "Message Sequence", "Message Sequence");
-
-                    List<string> UniqueMessageSequence = dt.AsEnumerable().Select(x => x["Message Sequence"]?.ToString())?.Distinct()?.ToList();
-
-                    wsPivot7 = DoDefaultCopy(wsPivot7, "sent sequence");
-                }
-                catch (Exception ex)
-                {
-                    log.logMessage += $"Error generating the excel sheet with Message Sequence metrics {ex.Message}    {ex.StackTrace}";
-                }
-
-                #endregion
-
-                #region Pivot 8
-
-                try
-                {
-                    //pivot 8
-
-                    if (LocationQuestion != null)
-                    {
-                        var wsPivot6 = package.Workbook.Worksheets.Add("Split by Location");
-
-                        wsPivot6.Cells[1, 1, 1, 8].Merge = true;
-                        wsPivot6.Cells[1, 1, 1, 8].Value = "Split by Location" + " Performance Report";
-                        wsPivot6.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                        FormatHeader(wsPivot6.Cells[1, 1, 1, 8], 2);
-
-                        wsPivot6.Cells[2, 1, 2, 8].Merge = true;
-                        wsPivot6.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                        FormatHeader(wsPivot6.Cells[2, 1, 2, 8], 4);
-
-                        wsPivot6.Cells[3, 1, 3, 8].Merge = true;
-                        wsPivot6.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                        FormatHeader(wsPivot6.Cells[3, 1, 3, 8], 4);
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                        //dataRange.AutoFitColumns();
-                        pivotTable = wsPivot6.PivotTables.Add(wsPivot6.Cells["A7"], dataRange, "AnsweredByLocation");
-
-                        pivotTable.ConfigurePivot("Questionnaire", LocationQuestion.Text, LocationQuestion.Text);
-
-                        wsPivot6 = DoDefaultCopy(wsPivot6, "location");
+                        if (q.SentCount + q.ThrottledCount + q.UnsubscribedCount + q.BouncedCount + q.ExceptionCount != 0)
+                        {
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Merge = true;
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Value = q.DisplayName + " (" + q.FilePlacedOn.ToString("dd/MM/yyyy h:mm tt") + ")";
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Style.Font.Bold = true;
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 242, 204));
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Style.WrapText = true;
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                            OverviewSheet.Cells[r, 1, r + 1, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+                            OverviewSheet.Cells[r, 2].Value = q.SentCount + q.ThrottledCount + q.UnsubscribedCount + q.BouncedCount + q.ExceptionCount;
+                            OverviewSheet.Cells[r, 3].Value = q.ThrottledCount;
+                            OverviewSheet.Cells[r, 4].Value = q.UnsubscribedCount;
+                            OverviewSheet.Cells[r, 5].Value = q.BouncedCount;
+                            OverviewSheet.Cells[r, 6].Value = q.ExceptionCount;
+                            OverviewSheet.Cells[r, 7].Value = q.SentCount;
+                            OverviewSheet.Cells[r, 8].Value = q.AnsweredCount;
+                            OverviewSheet.Cells[r, 9].Value = q.CompletedCount;
+
+                            int t = q.SentCount + q.ThrottledCount + q.UnsubscribedCount + q.BouncedCount + q.ExceptionCount;
+
+                            OverviewSheet.Cells[r + 1, 2, r + 1, 9].Style.Numberformat.Format = "#0.00%";
+
+                            OverviewSheet.Cells[r + 1, 7].Value = (double)q.SentCount / t;
+
+                            if (q.SentCount != 0)
+                                OverviewSheet.Cells[r + 1, 8].Value = (double)q.AnsweredCount / q.SentCount;
+                            else
+                            {
+                                OverviewSheet.Cells[r + 1, 8].Value = "NA";
+                                OverviewSheet.Cells[r + 1, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            }
+
+                            if (q.AnsweredCount != 0)
+                                OverviewSheet.Cells[r + 1, 9].Value = (double)q.CompletedCount / q.AnsweredCount;
+                            else
+                            {
+                                OverviewSheet.Cells[r + 1, 9].Value = "NA";
+                                OverviewSheet.Cells[r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            }
+
+                            OverviewSheet.Cells[r + 1, 3].Value = (double)q.ThrottledCount / t;
+                            OverviewSheet.Cells[r + 1, 4].Value = (double)q.UnsubscribedCount / t;
+                            OverviewSheet.Cells[r + 1, 5].Value = (double)q.BouncedCount / t;
+                            OverviewSheet.Cells[r + 1, 6].Value = (double)q.ExceptionCount / t;
+                            OverviewSheet.Cells[r + 1, 2].Value = (double)(q.SentCount + q.ThrottledCount + q.UnsubscribedCount + q.BouncedCount + q.ExceptionCount) / t;
+
+                            r++;
+                            r++;
+                        }
                     }
                 }
-                catch (Exception ex)
+
+                var OtherSources = AllSplits.Where(x => x.id == "Other Sources")?.FirstOrDefault();
+
+                int OtherSourcesCount = 0;
+
+                if (OtherSources != null)
                 {
-                    log.logMessage += $"Error generating the excel sheet with location metrics {ex.Message}    {ex.StackTrace}";
+                    OtherSourcesCount = OtherSources.SentCount + OtherSources.ThrottledCount + OtherSources.UnsubscribedCount +
+                        OtherSources.BouncedCount + OtherSources.ExceptionCount;
+                }
+
+                if (OtherSourcesCount > 0)
+                {
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Merge = true;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Value = OtherSources.DisplayName;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.Font.Bold = true;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(0, 0, 0));
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 242, 204));
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.WrapText = true;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+                    OverviewSheet.Cells[r, 2].Value = OtherSourcesCount;
+                    OverviewSheet.Cells[r, 3].Value = OtherSources.ThrottledCount;
+                    OverviewSheet.Cells[r, 4].Value = OtherSources.UnsubscribedCount;
+                    OverviewSheet.Cells[r, 5].Value = OtherSources.BouncedCount;
+                    OverviewSheet.Cells[r, 6].Value = OtherSources.ExceptionCount;
+                    OverviewSheet.Cells[r, 7].Value = OtherSources.SentCount;
+                    OverviewSheet.Cells[r, 8].Value = OtherSources.AnsweredCount;
+                    OverviewSheet.Cells[r, 9].Value = OtherSources.CompletedCount;
+
+                    OverviewSheet.Cells[r + 1, 2, r + 1, 9].Style.Numberformat.Format = "#0.00%";
+
+                    OverviewSheet.Cells[r + 1, 7].Value = (double)OtherSources.SentCount / OtherSourcesCount;
+
+                    if (OtherSources.SentCount != 0)
+                        OverviewSheet.Cells[r + 1, 8].Value = (double)OtherSources.AnsweredCount / OtherSources.SentCount;
+                    else
+                    {
+                        OverviewSheet.Cells[r + 1, 8].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+
+                    if (OtherSources.AnsweredCount != 0)
+                        OverviewSheet.Cells[r + 1, 9].Value = (double)OtherSources.CompletedCount / OtherSources.AnsweredCount;
+                    else
+                    {
+                        OverviewSheet.Cells[r + 1, 9].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+
+                    OverviewSheet.Cells[r + 1, 3].Value = (double)OtherSources.ThrottledCount / OtherSourcesCount;
+                    OverviewSheet.Cells[r + 1, 4].Value = (double)OtherSources.UnsubscribedCount / OtherSourcesCount;
+                    OverviewSheet.Cells[r + 1, 5].Value = (double)OtherSources.BouncedCount / OtherSourcesCount;
+                    OverviewSheet.Cells[r + 1, 6].Value = (double)OtherSources.ExceptionCount / OtherSourcesCount;
+                    OverviewSheet.Cells[r + 1, 2].Value = (double)(OtherSources.SentCount + OtherSources.ThrottledCount + OtherSources.UnsubscribedCount + OtherSources.BouncedCount + OtherSources.ExceptionCount) / OtherSourcesCount;
+
+                    r++;
+                    r++;
+                }
+
+                var AllSourcesMapped = AllSplits.Where(x => x.DisplayName?.Contains(".xlsx") == true || x.DisplayName?.Contains("Other Sources") == true || x.DisplayName?.Contains(".csv") == true);
+
+                if (AllSourcesMapped != null)
+                {
+                    SentCount = AllSourcesMapped.Select(x => x.SentCount).Sum();
+                    ThrottledCount = AllSourcesMapped.Select(x => x.ThrottledCount).Sum();
+                    UnsubscribedCount = AllSourcesMapped.Select(x => x.UnsubscribedCount).Sum();
+                    BouncedCount = AllSourcesMapped.Select(x => x.BouncedCount).Sum();
+                    ExceptionCount = AllSourcesMapped.Select(x => x.ExceptionCount).Sum();
+                    AnsweredCount = AllSourcesMapped.Select(x => x.AnsweredCount).Sum();
+                    CompletedCount = AllSourcesMapped.Select(x => x.CompletedCount).Sum();
+
+                    total = SentCount + ThrottledCount + UnsubscribedCount +
+                    BouncedCount + ExceptionCount;
+
+                    OverviewSheet.Cells[r, 2].Value = total;
+                    OverviewSheet.Cells[r, 3].Value = ThrottledCount;
+                    OverviewSheet.Cells[r, 4].Value = UnsubscribedCount;
+                    OverviewSheet.Cells[r, 5].Value = BouncedCount;
+                    OverviewSheet.Cells[r, 6].Value = ExceptionCount;
+                    OverviewSheet.Cells[r, 7].Value = SentCount;
+                    OverviewSheet.Cells[r, 8].Value = AnsweredCount;
+                    OverviewSheet.Cells[r, 9].Value = CompletedCount;
+
+                    if (total != 0)
+                    {
+                        OverviewSheet.Cells[r + 1, 7].Value = (double)SentCount / total;
+
+                        if (SentCount != 0)
+                            OverviewSheet.Cells[r + 1, 8].Value = (double)AnsweredCount / SentCount;
+                        else
+                        {
+                            OverviewSheet.Cells[r + 1, 8].Value = "NA";
+                            OverviewSheet.Cells[r + 1, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        }
+
+                        if (AnsweredCount != 0)
+                            OverviewSheet.Cells[r + 1, 9].Value = (double)CompletedCount / AnsweredCount;
+                        else
+                        {
+                            OverviewSheet.Cells[r + 1, 9].Value = "NA";
+                            OverviewSheet.Cells[r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        }
+
+                        OverviewSheet.Cells[r + 1, 3].Value = (double)ThrottledCount / total;
+                        OverviewSheet.Cells[r + 1, 4].Value = (double)UnsubscribedCount / total;
+                        OverviewSheet.Cells[r + 1, 5].Value = (double)BouncedCount / total;
+                        OverviewSheet.Cells[r + 1, 6].Value = (double)ExceptionCount / total;
+                        OverviewSheet.Cells[r + 1, 2].Value = (double)(SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount) / total;
+                    }
+                    else
+                    {
+                        OverviewSheet.Cells[r + 1, 7].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 8].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 9].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 3].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 4].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 5].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 6].Value = "NA";
+                        OverviewSheet.Cells[r + 1, 2].Value = "NA";
+
+                        OverviewSheet.Cells[r + 1, 2, r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+
+                    OverviewSheet.Cells[r + 1, 2, r + 1, 9].Style.Numberformat.Format = "#0.00%";
+
+                    OverviewSheet.Cells[r, 1].Value = "Total Count";
+                    OverviewSheet.Cells[r, 1].Style.Font.Bold = true;
+                    OverviewSheet.Cells[r + 1, 1].Value = "Total Percentage";
+                    OverviewSheet.Cells[r + 1, 1].Style.Font.Bold = true;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));
+                    OverviewSheet.Cells[r, 1, r + 1, 1].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+
                 }
 
                 #endregion
 
-                #region Pivot 9
+                #region tables
 
-                try
+                List<PrefillSlicing> QuestionsForSplit = a.PrefillsForSlices;
+
+                if (QuestionsForSplit != null && QuestionsForSplit?.Count() > 0)
                 {
-                    //pivot 9
+                    var QuestionsSplitSheet = package.Workbook.Worksheets.Add("Split by questions");
 
-                    if (TouchPointQuestion != null)
+                    QuestionsSplitSheet.Cells[1, 1, 1, 8].Merge = true;
+                    QuestionsSplitSheet.Cells[1, 1, 1, 8].Value = "Prefill question based performance report";
+                    QuestionsSplitSheet.Cells[1, 1, 1, 8].Style.Font.Bold = true;
+                    FormatHeader(QuestionsSplitSheet.Cells[1, 1, 1, 8], 2);
+                    QuestionsSplitSheet.Cells[2, 1, 2, 8].Merge = true;
+                    QuestionsSplitSheet.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
+                    FormatHeader(QuestionsSplitSheet.Cells[2, 1, 2, 8], 4);
+
+                    QuestionsSplitSheet.Column(1).Width = 44;
+
+                    r = 4;
+
+                    foreach (PrefillSlicing q in QuestionsForSplit)
                     {
-                        var wsPivot6 = package.Workbook.Worksheets.Add("Split by TouchPoint");
+                        string header = "Overall Performance Split by ";
 
-                        wsPivot6.Cells[1, 1, 1, 8].Merge = true;
-                        wsPivot6.Cells[1, 1, 1, 8].Value = "Split by TouchPoint" + " Performance Report";
-                        wsPivot6.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                        FormatHeader(wsPivot6.Cells[1, 1, 1, 8], 2);
+                        if (q.Note == null)
+                            header = header + q.Text;
+                        else
+                            header = header + q.Note;
 
-                        wsPivot6.Cells[2, 1, 2, 8].Merge = true;
-                        wsPivot6.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                        FormatHeader(wsPivot6.Cells[2, 1, 2, 8], 4);
+                        QuestionsSplitSheet.Cells[r, 1, r, 9].Merge = true;
+                        QuestionsSplitSheet.Cells[r, 1, r, 9].Value = header;
+                        QuestionsSplitSheet.Cells[r, 1, r, 9].Style.Font.Bold = true;
+                        FormatHeader(QuestionsSplitSheet.Cells[r, 1, r, 9], 2);
+                        r++;
 
-                        wsPivot6.Cells[3, 1, 3, 8].Merge = true;
-                        wsPivot6.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                        FormatHeader(wsPivot6.Cells[3, 1, 3, 8], 4);
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Size = 8;
+                        QuestionsSplitSheet = MakeOverviewHeaders(QuestionsSplitSheet, r);
 
-                        //dataRange.AutoFitColumns();
-                        pivotTable = wsPivot6.PivotTables.Add(wsPivot6.Cells["A7"], dataRange, "AnsweredByTouchPoint");
+                        r++;
 
-                        pivotTable.ConfigurePivot("Questionnaire", TouchPointQuestion.Text, TouchPointQuestion.Text);
+                        foreach (AggregatedSplits s in AllSplits.Where(x => x.id == q.Id))
+                        {
+                            QuestionsSplitSheet.Cells[r + 1, 2, r + 1, 9].Style.Numberformat.Format = "#0.00%";
 
-                        wsPivot6 = DoDefaultCopy(wsPivot6, "touch point");
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Merge = true;
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Value = s.OptionName;
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.Font.Bold = true;
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 242, 204));
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.WrapText = true;
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                            QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+                            QuestionsSplitSheet.Cells[r, 2].Value = s.SentCount + s.ThrottledCount + s.UnsubscribedCount + s.BouncedCount + s.ExceptionCount;
+                            QuestionsSplitSheet.Cells[r, 3].Value = s.ThrottledCount;
+                            QuestionsSplitSheet.Cells[r, 4].Value = s.UnsubscribedCount;
+                            QuestionsSplitSheet.Cells[r, 5].Value = s.BouncedCount;
+                            QuestionsSplitSheet.Cells[r, 6].Value = s.ExceptionCount;
+                            QuestionsSplitSheet.Cells[r, 7].Value = s.SentCount;
+                            QuestionsSplitSheet.Cells[r, 8].Value = s.AnsweredCount;
+                            QuestionsSplitSheet.Cells[r, 9].Value = s.CompletedCount;
+
+                            if (s.SentCount + s.ThrottledCount + s.UnsubscribedCount + s.BouncedCount + s.ExceptionCount != 0)
+                            {
+                                total = s.SentCount + s.ThrottledCount + s.UnsubscribedCount + s.BouncedCount + s.ExceptionCount;
+
+                                QuestionsSplitSheet.Cells[r + 1, 7].Value = (double)s.SentCount / total;
+
+                                if (s.SentCount != 0)
+                                    QuestionsSplitSheet.Cells[r + 1, 8].Value = (double)s.AnsweredCount / s.SentCount;
+                                else
+                                {
+                                    QuestionsSplitSheet.Cells[r + 1, 8].Value = "NA";
+                                    QuestionsSplitSheet.Cells[r + 1, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                                }
+
+                                if (s.AnsweredCount != 0)
+                                    QuestionsSplitSheet.Cells[r + 1, 9].Value = (double)s.CompletedCount / s.AnsweredCount;
+                                else
+                                {
+                                    QuestionsSplitSheet.Cells[r + 1, 9].Value = "NA";
+                                    QuestionsSplitSheet.Cells[r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                                }
+
+                                //QuestionsSplitSheet.Cells[r + 1, 8].Value = s.SentCount != 0 ? Convert.ToString(Math.Round((double)s.AnsweredCount / s.SentCount, 4) * 100) + "%" : "NA";
+                                //QuestionsSplitSheet.Cells[r + 1, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                                //QuestionsSplitSheet.Cells[r + 1, 9].Value = s.AnsweredCount != 0 ? Convert.ToString(Math.Round((double)s.CompletedCount / s.AnsweredCount, 4) * 100) + "%" : "NA";
+                                //QuestionsSplitSheet.Cells[r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                                QuestionsSplitSheet.Cells[r + 1, 3].Value = (double)s.ThrottledCount / total;
+                                QuestionsSplitSheet.Cells[r + 1, 4].Value = (double)s.UnsubscribedCount / total;
+                                QuestionsSplitSheet.Cells[r + 1, 5].Value = (double)s.BouncedCount / total;
+                                QuestionsSplitSheet.Cells[r + 1, 6].Value = (double)s.ExceptionCount / total;
+                                QuestionsSplitSheet.Cells[r + 1, 2].Value = (double)(s.SentCount + s.ThrottledCount + s.UnsubscribedCount + s.BouncedCount + s.ExceptionCount) / total;
+                            }
+                            else
+                            {
+                                QuestionsSplitSheet.Cells[r + 1, 7].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 8].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 9].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 3].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 4].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 5].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 6].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 2].Value = "NA";
+
+                                QuestionsSplitSheet.Cells[r + 1, 2, r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            }
+
+                            r++;
+                            r++;
+                        }
+
+                        SentCount = AllSplits.Where(x => x.id == q.Id).Select(y => y.SentCount).Sum();
+                        ThrottledCount = AllSplits.Where(x => x.id == q.Id).Select(y => y.ThrottledCount).Sum();
+                        UnsubscribedCount = AllSplits.Where(x => x.id == q.Id).Select(y => y.UnsubscribedCount).Sum();
+                        BouncedCount = AllSplits.Where(x => x.id == q.Id).Select(y => y.BouncedCount).Sum();
+                        ExceptionCount = AllSplits.Where(x => x.id == q.Id).Select(y => y.ExceptionCount).Sum();
+                        AnsweredCount = AllSplits.Where(x => x.id == q.Id).Select(y => y.AnsweredCount).Sum();
+                        CompletedCount = AllSplits.Where(x => x.id == q.Id).Select(y => y.CompletedCount).Sum();
+
+                        total = SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount;
+
+                        QuestionsSplitSheet.Cells[r, 2].Value = SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount;
+                        QuestionsSplitSheet.Cells[r, 3].Value = ThrottledCount;
+                        QuestionsSplitSheet.Cells[r, 4].Value = UnsubscribedCount;
+                        QuestionsSplitSheet.Cells[r, 5].Value = BouncedCount;
+                        QuestionsSplitSheet.Cells[r, 6].Value = ExceptionCount;
+                        QuestionsSplitSheet.Cells[r, 7].Value = SentCount;
+                        QuestionsSplitSheet.Cells[r, 8].Value = AnsweredCount;
+                        QuestionsSplitSheet.Cells[r, 9].Value = CompletedCount;
+
+                        if (total != 0)
+                        {
+                            QuestionsSplitSheet.Cells[r + 1, 7].Value = (double)SentCount / total;
+
+                            if (SentCount != 0)
+                                QuestionsSplitSheet.Cells[r + 1, 8].Value = (double)AnsweredCount / SentCount;
+                            else
+                            {
+                                QuestionsSplitSheet.Cells[r + 1, 8].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            }
+
+                            if (AnsweredCount != 0)
+                                QuestionsSplitSheet.Cells[r + 1, 9].Value = (double)CompletedCount / AnsweredCount;
+                            else
+                            {
+                                QuestionsSplitSheet.Cells[r + 1, 9].Value = "NA";
+                                QuestionsSplitSheet.Cells[r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            }
+
+                            QuestionsSplitSheet.Cells[r + 1, 3].Value = (double)ThrottledCount / total;
+                            QuestionsSplitSheet.Cells[r + 1, 4].Value = (double)UnsubscribedCount / total;
+                            QuestionsSplitSheet.Cells[r + 1, 5].Value = (double)BouncedCount / total;
+                            QuestionsSplitSheet.Cells[r + 1, 6].Value = (double)ExceptionCount / total;
+                            QuestionsSplitSheet.Cells[r + 1, 2].Value = (double)(SentCount + ThrottledCount + UnsubscribedCount + BouncedCount + ExceptionCount) / total;
+
+                            QuestionsSplitSheet.Cells[r + 1, 2, r + 1, 9].Style.Numberformat.Format = "#0.00%";
+                        }
+                        else
+                        {
+                            QuestionsSplitSheet.Cells[r + 1, 7].Value = "NA";
+                            QuestionsSplitSheet.Cells[r + 1, 8].Value = "NA";
+                            QuestionsSplitSheet.Cells[r + 1, 9].Value = "NA";
+                            QuestionsSplitSheet.Cells[r + 1, 3].Value = "NA";
+                            QuestionsSplitSheet.Cells[r + 1, 4].Value = "NA";
+                            QuestionsSplitSheet.Cells[r + 1, 5].Value = "NA";
+                            QuestionsSplitSheet.Cells[r + 1, 6].Value = "NA";
+                            QuestionsSplitSheet.Cells[r + 1, 2].Value = "NA";
+
+                            QuestionsSplitSheet.Cells[r + 1, 2, r + 1, 9].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        }
+
+                        QuestionsSplitSheet.Cells[r, 1].Value = "Total Count";
+                        QuestionsSplitSheet.Column(1).Width = 21;
+                        QuestionsSplitSheet.Cells[r, 1].Style.Font.Bold = true;
+                        QuestionsSplitSheet.Cells[r + 1, 1].Value = "Total Percentage";
+                        QuestionsSplitSheet.Cells[r + 1, 1].Style.Font.Bold = true;
+                        QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));
+                        QuestionsSplitSheet.Cells[r, 1, r + 1, 1].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+
+                        r++;
+                        r++;
+                        r++;
                     }
                 }
-                catch (Exception ex)
+
+                var channel = package.Workbook.Worksheets.Add("Split by Channel");
+                channel = CreateTable(channel, AllSplits, "Channel", filter, TimeZoneOffset, UTCTZD);
+
+                var QuestionnairesSplit = package.Workbook.Worksheets.Add("Split by Questionnaires");
+                QuestionnairesSplit = CreateTable(QuestionnairesSplit, AllSplits, "Questionnaire", filter, TimeZoneOffset, UTCTZD);
+
+                var MonthSplit = package.Workbook.Worksheets.Add("Split by Month");
+                MonthSplit = CreateTable(MonthSplit, AllSplits, "Sent Month", filter, TimeZoneOffset, UTCTZD);
+
+                var DispatchSplit = package.Workbook.Worksheets.Add("Split by Dispatch");
+                DispatchSplit = CreateTable(DispatchSplit, AllSplits, "DispatchId", filter, TimeZoneOffset, UTCTZD);
+
+                var TemplateSplit = package.Workbook.Worksheets.Add("Split by Message Template");
+                TemplateSplit = CreateTable(TemplateSplit, AllSplits, "Message Template", filter, TimeZoneOffset, UTCTZD);
+
+                var SequenceSplit = package.Workbook.Worksheets.Add("Split by Sent Sequence");
+                SequenceSplit = CreateTable(SequenceSplit, AllSplits, "Message Sequence", filter, TimeZoneOffset, UTCTZD);
+
+                if (ZoneQuestion != null && AllSplits.Where(x => x.id == "Zone")?.Count() > 0)
                 {
-                    log.logMessage += $"Error generating the excel sheet with touchpoint metrics {ex.Message}    {ex.StackTrace}";
+                    var ZoneSplit = package.Workbook.Worksheets.Add("Split by Zone");
+                    ZoneSplit = CreateTable(ZoneSplit, AllSplits, "Zone", filter, TimeZoneOffset, UTCTZD);
+                }
+                if (TouchPointQuestion != null && AllSplits.Where(x => x.id == "Touchpoint")?.Count() > 0)
+                {
+                    var TouchpointSplit = package.Workbook.Worksheets.Add("Split by Touchpoint");
+                    TouchpointSplit = CreateTable(TouchpointSplit, AllSplits, "Touchpoint", filter, TimeZoneOffset, UTCTZD);
+                }
+                if (LocationQuestion != null && AllSplits.Where(x => x.id == "Location")?.Count() > 0)
+                {
+                    var LocationSplit = package.Workbook.Worksheets.Add("Split by Location");
+                    LocationSplit = CreateTable(LocationSplit, AllSplits, "Location", filter, TimeZoneOffset, UTCTZD);
                 }
 
                 #endregion
 
-                #region Pivot 6
-
-                try
-                {
-                    //pivot 6
-
-                    if (ZoneQuestion != null)
-                    {
-                        var wsPivot6 = package.Workbook.Worksheets.Add("Split by Zone");
-
-                        wsPivot6.Cells[1, 1, 1, 8].Merge = true;
-                        wsPivot6.Cells[1, 1, 1, 8].Value = "Split by Zone" + " Performance Report";
-                        wsPivot6.Cells[1, 1, 1, 8].Style.Font.Bold = true;
-                        FormatHeader(wsPivot6.Cells[1, 1, 1, 8], 2);
-
-                        wsPivot6.Cells[2, 1, 2, 8].Merge = true;
-                        wsPivot6.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
-                        FormatHeader(wsPivot6.Cells[2, 1, 2, 8], 4);
-
-                        wsPivot6.Cells[3, 1, 3, 8].Merge = true;
-                        wsPivot6.Cells[3, 1, 3, 8].Value = "If you are unable to see the Pivot tables below, please click \"Enable Editing\" on the bar above to view them.";
-                        FormatHeader(wsPivot6.Cells[3, 1, 3, 8], 4);
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Italic = true;
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 0, 0));
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Bold = false;
-                        wsPivot6.Cells[3, 1, 3, 8].Style.Font.Size = 8;
-
-                        //dataRange.AutoFitColumns();
-                        pivotTable = wsPivot6.PivotTables.Add(wsPivot6.Cells["A7"], dataRange, "AnsweredByZone");
-
-                        pivotTable.ConfigurePivot("Questionnaire", ZoneQuestion.Text, ZoneQuestion.Text);
-
-                        wsPivot6 = DoDefaultCopy(wsPivot6, "zone");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    log.logMessage += $"Error generating the excel sheet with Zone metrics {ex.Message}    {ex.StackTrace}";
-                }
-
-                #endregion
-
-                package.Workbook.Worksheets.MoveToEnd("Raw Data All");
-
-                return new Tuple<byte[], bool>(package.GetAsByteArray(), true);
+                return package.GetAsByteArray();
             }
             catch(Exception ex)
             {
-                log.logMessage += $"Error generating the excel excel report {ex.Message}    {ex.StackTrace}";
+                log.logMessage += $"Error generating metrics report {ex.Message}    {ex.StackTrace}";
                 return null;
             }
+        }
+
+        ExcelWorksheet CreateTable(ExcelWorksheet e, List<AggregatedSplits> splits, string PivotColumn, FilterBy filter, int TimeZoneOffset, string UTCTZD)
+        {
+            if (splits == null || PivotColumn == null || filter == null || UTCTZD == null)
+                return null;
+            
+            if (splits.Select(x => x.id).Contains(PivotColumn) == false)
+                return null;
+
+            try
+            {
+                List<string> UniqueVals = splits.Where(x => x.id == PivotColumn).Select(y => y.DisplayName)?.Distinct().ToList();
+
+                Dictionary<string, Tuple<int, int>> stats = new Dictionary<string, Tuple<int, int>>();
+
+                e.Cells[1, 1, 1, 8].Merge = true;
+                e.Cells[1, 1, 1, 8].Value = PivotColumn + " Performance Report";
+                e.Cells[1, 1, 1, 8].Style.Font.Bold = true;
+                FormatHeader(e.Cells[1, 1, 1, 8], 2);
+
+                e.Cells[2, 1, 2, 8].Merge = true;
+                e.Cells[2, 1, 2, 8].Value = "Date Range: " + filter.afterdate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD + " - " + filter.beforedate.AddMinutes(TimeZoneOffset).ToString("dd/MM/yyyy h:mm tt") + " " + UTCTZD;
+                FormatHeader(e.Cells[2, 1, 2, 8], 4);
+
+                e.Cells[7, 7, 14, 14].Merge = true;
+
+                switch (PivotColumn)
+                {
+                    case "Channel":
+                        e.Cells[7, 7, 14, 14].Value = "This table contains data of total invites that " +
+                    "were sent during the set date range split by Channels. " +
+                    "The total invites sent excludes requests that were throttled OR unsubscribed. " +
+                    "The total invites sent for each channel include multiple messages sent for the " +
+                    "same token as follow up messages, and the total number of invites sent may be " +
+                    "more than actual unique invites (tokens) sent. \r\n" +
+                    "If partial response collection is switched ON, then Answered responses will show a further split " +
+                    "for Completed Responses, that will indicate the completion rates for Invites that were completely answered.";
+                        break;
+
+                    case "Sent Month":
+                        e.Cells[7, 7, 14, 14].Value = "This table contains data of total invites that " +
+                        "were sent during the set date range split by Months. The total invites sent " +
+                        "excludes requests that were throttled OR unsubscribed. Some months in the " +
+                        "selected date range may not have full month data. See table for details. \r\n" +
+                        "If partial response collection is switched ON, then Answered responses will show a " +
+                        "further split for Completed Responses, that will indicate the completion rates " +
+                        "for Invites that were completely answered.";
+                        break;
+
+                    case "Zone":
+                        e.Cells[7, 7, 14, 14].Value = "This table contains data of total invites that " +
+                        "were sent during the set date range split by " + PivotColumn +
+                        "The total invites sent excludes requests that were throttled OR unsubscribed. \r\n" +
+                        "If partial response collection is switched ON, then Answered responses will show a " +
+                        "further split for Completed Responses, that will indicate the completion rates " +
+                        "for Invites that were completely answered. \r\n" +
+                        "Total invites requested may differ from overall total depending on invites that have been sent with Zone as a pre-fill.";
+                        break;
+
+                    case "Touchpoint":
+                        e.Cells[7, 7, 14, 14].Value = "This table contains data of total invites that " +
+                        "were sent during the set date range split by " + PivotColumn +
+                        "The total invites sent excludes requests that were throttled OR unsubscribed. \r\n" +
+                        "If partial response collection is switched ON, then Answered responses will show a " +
+                        "further split for Completed Responses, that will indicate the completion rates " +
+                        "for Invites that were completely answered.\r\n" +
+                        "Total invites requested may differ from overall total depending on invites that have been sent with Touchpoint as a pre-fill.";
+                        break;
+
+                    case "Location":
+                        e.Cells[7, 7, 14, 14].Value = "This table contains data of total invites that " +
+                        "were sent during the set date range split by " + PivotColumn +
+                        "The total invites sent excludes requests that were throttled OR unsubscribed. \r\n" +
+                        "If partial response collection is switched ON, then Answered responses will show a further" +
+                        " split for Completed Responses, that will indicate the completion rates for " +
+                        "Invites that were completely answered.\r\n" +
+                        "Total invites requested may differ from overall total depending on invites that have been sent with Location as a pre - fill.";
+                        break;
+
+                    default:
+                        e.Cells[7, 7, 14, 14].Value = "This table contains data of total invites that " +
+                        "were sent during the set date range split by " + PivotColumn +
+                        "The total invites sent excludes requests that were throttled OR unsubscribed. \r\n" +
+                        "If partial response collection is switched ON, then Answered responses will show a " +
+                        "further split for Completed Responses, that will indicate the completion rates " +
+                        "for Invites that were completely answered.";
+                        break;
+                }
+
+                e.Cells[7, 7, 14, 14].Style.WrapText = true;
+                e.Cells[7, 7, 14, 14].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                e.Cells[7, 7, 14, 14].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+
+                int row = 4;
+
+                e.Column(1).Width = 44;
+                e.Column(2).Width = 16;
+                e.Column(3).Width = 16;
+                e.Column(4).Width = 16;
+                e.Column(5).Width = 16;
+
+                e.Cells[row, 2].Value = "Total Invites Processed";
+                e.Cells[row, 2].Style.Font.Bold = true;
+                e.Cells[row, 2, row, 4].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                e.Cells[row, 2].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));
+                e.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+                e.Cells[row, 2, row, 4].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+                e.Cells[row, 2, row, 4].Style.WrapText = true;
+
+                e.Cells[row, 3].Value = "Total Invites Answered(Out of Total Processed)";
+                e.Cells[row, 3].Style.Font.Bold = true;
+                e.Cells[row, 3].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(84, 130, 53));
+                e.Cells[row, 3].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+
+                e.Cells[row, 4].Value = "Completed Responses(Out of Total Answered)";
+                e.Cells[row, 4].Style.Font.Bold = true;
+                e.Cells[row, 4].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(84, 130, 53));
+                e.Cells[row, 4].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+
+                row++;
+
+                int TotalSent = 0;
+                int TotalAnswered = 0;
+                int TotalCompleted = 0;
+
+                foreach ( string val in UniqueVals.Where(x => !string.IsNullOrEmpty(x)))
+                {
+                    e.Cells[row, 1, row + 1, 1].Merge = true;
+                    e.Cells[row, 1, row + 1, 1].Value = val;
+                    e.Cells[row, 1, row + 1, 1].Style.WrapText = true;
+                    FormatHeader(e.Cells[row, 1, row + 1, 1], 4);
+
+                    int CompletedCount = splits.Where(x => x.id == PivotColumn && x.DisplayName == val) != null ?
+                        splits.Where(x => x.id == PivotColumn && x.DisplayName == val).FirstOrDefault().CompletedCount :
+                        0;
+
+                    int AnsweredCount = splits.Where(x => x.id == PivotColumn && x.DisplayName == val) != null ?
+                        splits.Where(x => x.id == PivotColumn && x.DisplayName == val).FirstOrDefault().AnsweredCount :
+                        0;
+
+                    int SentCount = splits.Where(x => x.id == PivotColumn && x.DisplayName == val) != null ?
+                        splits.Where(x => x.id == PivotColumn && x.DisplayName == val).FirstOrDefault().SentCount :
+                        0;
+
+                    e.Cells[row, 2].Value = SentCount;
+                    TotalSent = TotalSent + SentCount;
+
+                    e.Cells[row, 3].Value = AnsweredCount;
+                    TotalAnswered = TotalAnswered + AnsweredCount;
+
+                    e.Cells[row, 4].Value = CompletedCount;
+                    TotalCompleted = CompletedCount + TotalCompleted;
+
+                    if (AnsweredCount != 0)
+                        e.Cells[row + 1, 4].Value = (double)CompletedCount / AnsweredCount;
+                    else
+                    {
+                        e.Cells[row + 1, 4].Value = "NA";
+                        e.Cells[row + 1, 4].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+
+                    if (SentCount != 0)
+                    {
+                        e.Cells[row + 1, 3].Value = (double)AnsweredCount / SentCount;
+                        e.Cells[row + 1, 2].Value = (double)SentCount / SentCount;
+                    }
+                    else
+                    {
+                        e.Cells[row + 1, 3].Value = "NA";
+                        e.Cells[row + 1, 2, row + 1, 3].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+
+                    e.Cells[row + 1, 2, row + 1, 4].Style.Numberformat.Format = "#0.00%";
+
+                    //e.Cells[row + 1, 4].Value = AnsweredCount != 0 ? Convert.ToString(Math.Round((double)CompletedCount / AnsweredCount, 4) * 100) + "%" : "NA";
+                    //e.Cells[row + 1, 4].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                    //e.Cells[row + 1, 3].Value = SentCount != 0 ? Convert.ToString(Math.Round((double)AnsweredCount / SentCount, 4) * 100) + "%" : "NA";
+                    //e.Cells[row + 1, 3].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                    //e.Cells[row + 1, 2].Value = SentCount != 0 ? Convert.ToString(Math.Round((double)SentCount / SentCount, 4) *100) + "%" : "NA";
+                    //e.Cells[row + 1, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+                    row++;
+                    row++;
+                }
+
+                e.Cells[row, 2].Value = TotalSent;
+                e.Cells[row, 3].Value = TotalAnswered;
+                e.Cells[row, 4].Value = TotalCompleted;
+
+                if (TotalSent != 0)
+                {
+                    e.Cells[row + 1, 2].Value = (double)TotalSent / TotalSent;
+                    e.Cells[row + 1, 3].Value = (double)TotalAnswered / TotalSent;
+                    if (TotalAnswered != 0)
+                        e.Cells[row + 1, 4].Value = (double)TotalCompleted / TotalAnswered;
+                    else
+                        e.Cells[row + 1, 4].Value = "NA";
+
+                    e.Cells[row + 1, 2, row + 1, 4].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                else
+                {
+                    e.Cells[row + 1, 2].Value = "NA";
+                    e.Cells[row + 1, 3].Value = "NA";
+                    e.Cells[row + 1, 4].Value = "NA";
+
+                    e.Cells[row + 1, 2, row + 1, 4].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+
+                e.Cells[row + 1, 2, row + 1, 4].Style.Numberformat.Format = "#0.00%";
+
+                e.Cells[row, 1].Value = "Total Count";
+                e.Cells[row, 1].Style.Font.Bold = true;
+                e.Cells[row + 1, 1].Value = "Total Percentage";
+                e.Cells[row + 1, 1].Style.Font.Bold = true;
+                e.Cells[row, 1, row + 1, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                e.Cells[row, 1, row + 1, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));
+                e.Cells[row, 1, row + 1, 1].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(255, 255, 255));
+
+                return e;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        class AggregatedSplits
+        {
+            public string id { get; set; }
+            public string DisplayName { get; set; }
+            public string OptionName { get; set; }
+            public int SentCount { get; set; }
+            public int ThrottledCount { get; set; }
+            public int UnsubscribedCount { get; set; }
+            public int BouncedCount { get; set; }
+            public int ExceptionCount { get; set; }
+            public int AnsweredCount { get; set; }
+            public int CompletedCount { get; set; }
+            public int ErrorCount { get; set; }
+            public DateTime FilePlacedOn { get; set; }
         }
 
         void FormatHeader(ExcelRange range, int type = 1)

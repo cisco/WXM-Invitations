@@ -160,6 +160,14 @@ namespace XM.ID.Invitations.Net
             return await _AccountConfiguration.FindOneAndUpdateAsync<AccountConfiguration>(filter, update, opts);
         }
 
+        public async Task<AccountConfiguration> UpdateAccountConfiguration_PrefillSlices(List<PrefillSlicing> questions)
+        {
+            var filter = Builders<AccountConfiguration>.Filter.Empty;
+            var update = Builders<AccountConfiguration>.Update.Set(x => x.PrefillsForSlices, questions);
+            var opts = new FindOneAndUpdateOptions<AccountConfiguration> { IsUpsert = true, ReturnDocument = ReturnDocument.After };
+            return await _AccountConfiguration.FindOneAndUpdateAsync<AccountConfiguration>(filter, update, opts);
+        }
+
         public async Task<AccountConfiguration> UpdateAccountConfiguration_SMTPSetting(CustomSMTPSetting customSMTPSettings)
         {
             var filter = Builders<AccountConfiguration>.Filter.Empty;
@@ -428,20 +436,37 @@ namespace XM.ID.Invitations.Net
         }
 
         //method to merge WXM data and dispatch data
-        public async Task<List<WXMPartnerMerged>> GetMergedData(FilterBy filter, string bearer, List<Question> questions)
+        public async Task<List<WXMPartnerMerged>> GetMergedData(FilterBy filter, string bearer, List<Question> questions, int skip, int limit, int SortOrder)
         {
             if (filter == null)
                 return null;
 
-            List<LogEvent> events = await _EventLog.Find(x => (x.Tags.Contains("UserData") &&
-                                                        x.Updated > filter.afterdate && 
+            List<LogEvent> events = null;
+
+            if (SortOrder == 1)
+            {
+                events = await _EventLog.Find(x => (x.Tags.Contains("UserData") &&
+                                                        x.Updated > filter.afterdate &&
                                                         x.Updated < filter.beforedate) ||
-                                                        ((x.Tags.Contains("DispatchAPI")|| 
+                                                        ((x.Tags.Contains("DispatchAPI") ||
                                                         x.Tags.Contains("Initiator")) &&
                                                         x.Created > filter.afterdate &&
-                                                        x.Created < filter.beforedate && 
+                                                        x.Created < filter.beforedate &&
                                                         (x.LogMessage.Level == "Error" ||
-                                                        x.LogMessage.Level == "Failure"))).ToListAsync();
+                                                        x.LogMessage.Level == "Failure"))).SortBy(x => x.Created).Skip(skip).Limit(limit).ToListAsync();
+            }
+            else
+            {
+                events = await _EventLog.Find(x => (x.Tags.Contains("UserData") &&
+                                                        x.Updated > filter.afterdate &&
+                                                        x.Updated < filter.beforedate) ||
+                                                        ((x.Tags.Contains("DispatchAPI") ||
+                                                        x.Tags.Contains("Initiator")) &&
+                                                        x.Created > filter.afterdate &&
+                                                        x.Created < filter.beforedate &&
+                                                        (x.LogMessage.Level == "Error" ||
+                                                        x.LogMessage.Level == "Failure"))).SortByDescending(x => x.Created).Skip(skip).Limit(limit).ToListAsync();
+            }
 
             if (events == null)
                 return null;
@@ -455,7 +480,7 @@ namespace XM.ID.Invitations.Net
 
             //Already merged tokens also need to be updated with answers if answers come in late
 
-            List<WXMPartnerMerged> unanswered = await GetUnasweredMergedData(WXMFilter);
+            List<WXMPartnerMerged> unanswered = await GetUnasweredMergedData(WXMFilter, tokens);
 
             IEnumerable<string> Unansweredtoks = unanswered.Where(x => x._id?.ToLower()?.Contains("NoToken") == false).Select(x => x._id);
 
@@ -463,7 +488,7 @@ namespace XM.ID.Invitations.Net
                 tokens.AddRange(Unansweredtoks);
 
             tokens = tokens.Distinct()?.ToList();
-
+            
             List<WXMDeliveryEvents> WXMData = await hTTPWrapper.GetWXMOperationMetrics(new WXMMergedEventsFilter { TokenIds = tokens, filter = WXMFilter }, bearer);
 
             if (WXMData == null)
@@ -873,7 +898,7 @@ namespace XM.ID.Invitations.Net
 
                 if (ExistingSetting.Id != null)
                 {
-                    var update = filterbuilder.Set(x => x.Filter, filter).Set(x => x.TimeOffSet, ExistingSetting.TimeOffSet).Set(x => x.IsLocked, true);
+                    var update = filterbuilder.Set(x => x.Filter, filter).Set(x => x.TimeOffSet, ExistingSetting.TimeOffSet).Set(x => x.IsLocked, true).Set(x => x.OnlyLogs, ExistingSetting.OnlyLogs);
                                     
                     var result = await _OnDemand.UpdateOneAsync(x => x.Id == ExistingSetting.Id, update);
 
@@ -881,7 +906,7 @@ namespace XM.ID.Invitations.Net
                 }
                 else
                 {
-                    ExistingSetting = new OnDemandReportModel { Filter = filter, IsLocked = true, Id = ObjectId.GenerateNewId().ToString(), TimeOffSet = ExistingSetting.TimeOffSet };
+                    ExistingSetting = new OnDemandReportModel { Filter = filter, IsLocked = true, Id = ObjectId.GenerateNewId().ToString(), TimeOffSet = ExistingSetting.TimeOffSet, OnlyLogs = ExistingSetting.OnlyLogs };
 
                     await _OnDemand.InsertOneAsync(ExistingSetting);
 
@@ -921,7 +946,7 @@ namespace XM.ID.Invitations.Net
             }
         }
 
-        public async Task<List<WXMPartnerMerged>> GetUnasweredMergedData(FilterBy filter)
+        public async Task<List<WXMPartnerMerged>> GetUnasweredMergedData(FilterBy filter,List<string> tokens)
         {
             try
             {
@@ -930,7 +955,8 @@ namespace XM.ID.Invitations.Net
                 var condition = filterbuilder.Eq(x => x.Answered, false) &
                                 filterbuilder.Gte(x => x.CreatedAt, filter.afterdate) &
                                 filterbuilder.Lt(x => x.CreatedAt, filter.beforedate) &
-                                filterbuilder.Ne(x => x._id, null);
+                                filterbuilder.Ne(x => x._id, null) & 
+                                filterbuilder.In(x => x._id, tokens);
 
                 var fields = Builders<WXMPartnerMerged>.Projection.Include(x => x._id);
 
@@ -958,16 +984,19 @@ namespace XM.ID.Invitations.Net
             }
         }
 
-        public async Task<List<WXMPartnerMerged>> GetMergedDataFromDb(FilterBy filter)
+        public async Task<List<WXMPartnerMerged>> GetMergedDataFromDb(FilterBy filter, int skip, int limit)
         {
             if (filter == null)
                 return null;
 
             try
             {
-                var a = await _mergedData.Find(x => x.CreatedAt > filter.afterdate &&
-                                                                 x.CreatedAt < filter.beforedate &&
-                                                                 x._id != null)?.ToListAsync();
+                var filterBuilder = Builders<WXMPartnerMerged>.Filter;
+                var mongofilter = filterBuilder.Gte(x => x.CreatedAt, filter.afterdate) &
+         filterBuilder.Lt(x => x.CreatedAt, filter.beforedate);
+
+                var a = await _mergedData.Find(mongofilter)?.Skip(skip).Limit(limit).ToListAsync();
+                
                 return a;
             }
             catch (Exception e)
@@ -983,6 +1012,43 @@ namespace XM.ID.Invitations.Net
             List<string> distinct = await _EventLog.Distinct<string>("Location", filter).ToListAsync<string>();
 
             return distinct;
+        }
+
+        public async Task<List<RequestInitiatorRecords>> GetRequestInitiatorRecords()
+        {
+            try
+            {
+                return (await _RequestInitiator.FindAsync(x => x.Id != null)).ToList();
+            }
+            catch(Exception e)
+            {
+                return null;
+            }
+        }
+
+        public async Task<long> GetEventsCount(FilterBy filter)
+        {
+            if (filter == null)
+                return 0;
+
+            try
+            {
+                return await _EventLog.CountDocumentsAsync(x => (x.Tags.Contains("UserData") &&
+                                                        x.Updated > filter.afterdate &&
+                                                        x.Updated < filter.beforedate) ||
+                                                        ((x.Tags.Contains("DispatchAPI") ||
+                                                        x.Tags.Contains("Initiator")) &&
+                                                        x.Created > filter.afterdate &&
+                                                        x.Created < filter.beforedate &&
+                                                        (x.LogMessage.Level == "Error" ||
+                                                        x.LogMessage.Level == "Failure")));
+                //return await _EventLog.CountDocumentsAsync(x => x.Created > filter.afterdate &&
+                //                                                 x.Created < filter.beforedate);
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         #endregion

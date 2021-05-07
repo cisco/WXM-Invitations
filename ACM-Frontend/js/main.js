@@ -2512,7 +2512,7 @@ function getReportDetails(){
         // post the created Customer SMTP object to the vendor API
         async: true,
         crossDomain: true,
-        url: config.baseURL + "/api/MetricsReport",
+        url: config.baseURL + "/api/MetricsReport/" + detailLog,
         method: "POST",
 
         headers: {
@@ -2606,6 +2606,7 @@ function getReportDetails(){
                 //when no content is avaible in API
                 $('#icon-block1').hide();
                 $('#reportConfigForm').show();
+                
             } 
         },
         error: function (xhr, error) {
@@ -2692,6 +2693,10 @@ function getReportDetails(){
       
         if (data) {
             dataSliceValue = data.length;
+            if(dataSliceValue === 0){
+                $('#icon-block1').hide();
+                $('#reportConfigForm').show();
+            }
             $('#getDataSliceNumber').text(dataSliceValue);
             for(var i = 0; i < data.length; i++){
                 getPrefillSlicesData = data[i].note;
@@ -2724,7 +2729,6 @@ function getReportDetails(){
      $('.storeReportValue .selectedQuestionValue').each(function(){
         data.push($(this).val());
       });
-      if($('.storeReportValue .selectedQuestionValue').is(':visible')) {
         for(var i = 0; i < getQualifiedPrefills.length; i++){
             
             var containTrue = data.includes(getQualifiedPrefills[i].note);
@@ -2766,9 +2770,7 @@ function getReportDetails(){
         $('#reportConfigPopup').hide();
         $("#reportConfigForm").hide();
           
-    }else{
-        alert("At least one question prefill is required");
-    }
+
    }
    $("#add-questions").click(function () {
         addSelectedQuestion();

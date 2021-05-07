@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Configuration;
-using MongoDB.Bson.Serialization.Serializers;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -8,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using XM.ID.Invitations.Net;
 using XM.ID.Net;
@@ -22,13 +20,14 @@ namespace DPReporting
         SMTPServer smtpServer;
         readonly HTTPWrapper hTTPWrapper;
         ScheduleReportSettings schedule;
-        DataUploadSettings dataupload;
+        ViaMongoDB via;
 
-        public ReportTask(IConfigurationRoot configuration, ApplicationLog applog)
+        public ReportTask(IConfigurationRoot configuration, ApplicationLog applog, ViaMongoDB v)
         {
             Configuration = configuration;
             log = applog;
             hTTPWrapper = new HTTPWrapper();
+            via = v;
         }
 
         public async Task ReportSendingTask()
@@ -43,16 +42,7 @@ namespace DPReporting
 
             double hourlyDelay = schedule.Frequency;
 
-            double RunUploadEvery = dataupload.RunUploadEveryMins;
-
             bool IsScheduleReport = schedule.ScheduleReport;
-
-            if (IsScheduleReport && RunUploadEvery > hourlyDelay * 60)
-            {
-                log.logMessage += " Data upload frequency can't be greater than report schedule frequency";
-                log.AddLogsToFile(DateTime.UtcNow);
-                return;
-            }
 
             if (IsScheduleReport && (reportFor == 0 || hourlyDelay == 0))
             {
@@ -61,7 +51,9 @@ namespace DPReporting
                 return;
             }
 
-            var sendOutReport = SetUpReportSender();            
+            AccountConfiguration a = await via.GetAccountConfiguration();
+
+            var sendOutReport = SetUpReportSender(a);            
 
             DateTime StartDate = new DateTime();
 
@@ -94,7 +86,7 @@ namespace DPReporting
 
             try
             {
-                await RunReportTask(StartDate, reportFor, hourlyDelay, sendOutReport, RunUploadEvery);
+                await RunReportTask(StartDate, reportFor, hourlyDelay, sendOutReport, a);
             }
             catch(Exception ex)
             {
@@ -121,51 +113,40 @@ namespace DPReporting
                     AutoPickLastStartDate = autopick
                 };
 
-                double.TryParse(Configuration["DataUploadSettings:RunUploadEveryMins"], out double uploadEvery);
-                double.TryParse(Configuration["DataUploadSettings:UploadDataForLastHours"], out double uploadFor);
-                double.TryParse(Configuration["DataUploadSettings:CheckResponsesCapturedForLastHours"], out double ResponsesCheck);
-
-                dataupload = new DataUploadSettings 
-                { 
-                    RunUploadEveryMins = uploadEvery,
-                    UploadDataForLastHours = uploadFor,
-                    CheckResponsesCapturedForLastHours = ResponsesCheck
-                };
             }
             catch (Exception ex)
             {
                 schedule = null;
-                dataupload = null;
             }
 
-            if (schedule == null || dataupload == null)
+            if (schedule == null)
             {
                 log.logMessage += $" Invalid report schedule or data upload settings";
                 log.AddLogsToFile(DateTime.UtcNow);
             }
         }
 
-        public SendOutReport SetUpReportSender()
+        public SendOutReport SetUpReportSender(AccountConfiguration a)
         {
-            bool.TryParse(Configuration["CustomeMailServer:EnableSSL"], out bool enablessl);
-            int.TryParse(Configuration["CustomeMailServer:Port"], out int port);
-
-            try
+            if (a?.CustomSMTPSetting != null)
             {
-                smtpServer = new SMTPServer()
+                try
                 {
-                    EnableSSL = enablessl,
-                    FromAddress = Configuration["CustomeMailServer:FromAddress"],
-                    FromName = Configuration["CustomeMailServer:FromName"],
-                    Login = Configuration["CustomeMailServer:Login"],
-                    Password = Configuration["CustomeMailServer:Password"],
-                    Port = port,
-                    Server = Configuration["CustomeMailServer:Server"],
-                };
-            }
-            catch (Exception ex)
-            {
-                smtpServer = null;
+                    smtpServer = new SMTPServer()
+                    {
+                        EnableSSL = Convert.ToBoolean(a.CustomSMTPSetting.EnableSsl),
+                        FromAddress = a.CustomSMTPSetting.SenderEmailAddress,
+                        FromName = a.CustomSMTPSetting.SenderName,
+                        Login = a.CustomSMTPSetting.Username,
+                        Password = a.CustomSMTPSetting.Password,
+                        Port = Convert.ToInt32(a.CustomSMTPSetting.Port),
+                        Server = a.CustomSMTPSetting.Host,
+                    };
+                }
+                catch
+                {
+                    smtpServer = null;
+                }
             }
 
             if (smtpServer == null)
@@ -179,14 +160,90 @@ namespace DPReporting
             return new SendOutReport(smtpServer, log);
         }
 
-        public async Task RunReportTask(DateTime StartDate, int reportFor, double hourlyDelay, SendOutReport sendOutReport, double RunUploadEvery)
+        string EmailBodyMaker(bool IsLogs, bool IsNoData, DateTime FromDate, DateTime ToDate, List<string> filenames = null, string PathToEmail = null)
+        {
+            if (IsLogs)
+            {
+                if (filenames?.Count() == 0 || filenames == null || PathToEmail == null)
+                    return null;
+
+                if (!IsNoData)
+                {
+                    string emailBody = "<html><body> Hi, <br><br>Detailed logs for your survey dispatches between ";
+                    emailBody += "<b>" + FromDate.ToString("dd MMM yyyy") + " to " + ToDate.ToString("dd MMM yyyy") + "</b>" + " are ready and can be downloaded using the links below.<br><br>";
+
+                    emailBody += "In case the logs exceed 100,000 tokens (rows), they will be split across multiple excel files.<br><br>";
+
+                    int sheet = 1;
+                    foreach (string file in filenames)
+                    {
+                        emailBody += "<a href=" + PathToEmail + file + " >" + "Download Detailed Logs " + sheet.ToString() + " </a>";
+                        emailBody += " (File " + sheet.ToString() + "/" + filenames.Count().ToString() + ")" + "<br><br>";
+                        sheet++;
+                    }
+
+                    emailBody += "Note: Download links will expire in 2 days from the day they are generated.<br><br>";
+
+                    emailBody += "Thanks,<br>";
+                    emailBody += "Cisco Webex Team<br><br>";
+                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com </body></html>";
+
+                    return emailBody;
+                }
+                else
+                {
+                    string emailBody = "<html><body> Hi, <br><br>No invitations were sent in the time period- ";
+                    emailBody += "<b>" + FromDate.ToString("dd MMM yyyy") + " to " + ToDate.ToString("dd MMM yyyy") + "</b>" + ".<br><br>";
+
+                    emailBody += "In case the logs exceed 100,000 tokens (rows), they will be split across multiple excel files.<br><br>";
+
+                    int sheet = 1;
+                    foreach (string file in filenames)
+                    {
+                        emailBody += "<a href=" + PathToEmail + file + " >" + "Download Detailed Logs " + sheet.ToString() + " </a>";
+                        emailBody += " (File " + sheet.ToString() + "/" + filenames.Count().ToString() + ")" + "<br><br>";
+                        sheet++;
+                    }
+
+                    emailBody += "Note: Download links will expire in 2 days from the day they are generated.<br><br>";
+
+                    emailBody += "Thanks,<br>";
+                    emailBody += "Cisco Webex Team<br><br>";
+                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com </body></html>";
+
+                    return emailBody;
+                }
+            }
+            else
+            {
+                if (!IsNoData)
+                {
+                    string emailBody = "<html><body> Hi, <br><br>Operations metrics report for your survey dispatches between ";
+                    emailBody += "<b>" + FromDate.ToString("dd MMM yyyy") + " to " + ToDate.ToString("dd MMM yyyy") + "</b>" + " are ready and attached with this email.<br><br>";
+                    emailBody += "Thanks,<br>";
+                    emailBody += "Cisco Webex Team<br><br>";
+                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com </body></html>";
+
+                    return emailBody;
+                }
+                else
+                {
+                    string emailBody = "<html><body>Hi, <br><br>No invitations were sent in the time period- ";
+                    emailBody += "<b>" + FromDate.ToString("dd MMM yyyy") + " to " + ToDate.ToString("dd MMM yyyy") + "</b>" + ".<br><br>";
+                    emailBody += "Thanks,<br>";
+                    emailBody += "Cisco Webex Team<br><br>";
+                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com </body></html>";
+
+                    return emailBody;
+                }
+            }
+        }
+
+        public async Task RunReportTask(DateTime StartDate, int reportFor, double hourlyDelay, SendOutReport sendOutReport, AccountConfiguration a)
         {
             try
             {
-                ViaMongoDB via = new ViaMongoDB(Configuration);
                 bool IsScheduleReport = schedule.ScheduleReport;
-
-                AccountConfiguration a = await via.GetAccountConfiguration();
 
                 bool IsValidEmail(string email)
                 {
@@ -195,25 +252,101 @@ namespace DPReporting
                         var mail = new System.Net.Mail.MailAddress(email);
                         return true;
                     }
+                    catch
+                    { 
                         return false;
                     }
                 }
 
-                DataUpload d = new DataUpload(Configuration, log);
-
                 DateTime NextLockCheck = DateTime.UtcNow;
                 var OnDemand = await via.GetOnDemandModel();
                 NextLockCheck = NextLockCheck.AddMinutes(2);
-                
-                DateTime NextUpload = DateTime.UtcNow;
-                NextUpload = NextUpload.AddMinutes(RunUploadEvery);
 
+                int DeleteEvery = 0;
+                string ReportPath = "";
+                string PathToEmail = "";
+
+                int DeleteOlderThan = 48; //fixed in  hours
+
+                try
+                {
+                    int.TryParse(Configuration["DetailedLogs:DeleteEvery"], out DeleteEvery);
+                    PathToEmail = Configuration["DetailedLogs:PathToEmail"];
+                    ReportPath = Configuration["DetailedLogs:ReportPath"];
+                }
+                catch(Exception ex)
+                {
+                    log.logMessage += $" Detailed logs report settings are not set properly. Message- {ex.Message}, Trace- {ex.StackTrace}";
+                    log.AddLogsToFile(DateTime.UtcNow);
+
+                    return;
+                }
+
+                if (PathToEmail == null || ReportPath == null || DeleteEvery == 0)
+                {
+                    log.logMessage += $" Detailed logs report settings are not configured. Nulls or 0's are filled in when values were expected.";
+                    log.AddLogsToFile(DateTime.UtcNow);
+
+                    return;
+                }
+
+                try
+                {
+                    if (!Directory.Exists(ReportPath))
+                    {
+                        DirectoryInfo r = System.IO.Directory.CreateDirectory(ReportPath);
+                        ReportPath = r.FullName;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.logMessage += $" Cannot delete old detailed logs generated. Unable to create new report path. Stopping service- Message- " + ex.Message + " Trace- " + ex.StackTrace;
+                    log.AddLogsToFile(DateTime.UtcNow);
+                    return;
+                }
+
+                DateTime NextDeleteCheck = DateTime.UtcNow;
+                
                 while (true)
                 {
                     try
                     {
+                        if (DeleteEvery > 0 && NextDeleteCheck < DateTime.UtcNow)
+                        {
+                            DirectoryInfo reportdir = new DirectoryInfo(ReportPath);
+
+                            foreach(FileInfo f in reportdir.GetFiles())
+                            {
+                                if (Math.Abs(f.CreationTime.Subtract(DateTime.UtcNow).TotalHours) > DeleteOlderThan)
+                                {
+                                    try
+                                    {
+                                        File.Delete(Path.Combine(ReportPath, f.Name));
+                                    }
+                                    catch(Exception ex)
+                                    {
+                                        log.logMessage += $" Unable to delete file- " + Path.Combine(ReportPath, f.Name) + "- Message- " + ex.Message + " Trace- " + ex.StackTrace;
+                                        log.AddLogsToFile(DateTime.UtcNow);
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            NextDeleteCheck = DateTime.UtcNow.AddHours(DeleteEvery);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        log.logMessage += $"Error in deleting old detailed logs report- " + " {ex.Message}    {ex.StackTrace}";
+                        log.AddLogsToFile(DateTime.UtcNow);
+                        continue;
+                    }
+                    try
+                    {
                         if (IsScheduleReport && StartDate < DateTime.UtcNow)
                         {
+                            a = await via.GetAccountConfiguration();
+
                             string bearer = null;
 
                             string responseBody = await hTTPWrapper.GetLoginToken(a.WXMAdminUser, a.WXMAPIKey);
@@ -223,10 +356,12 @@ namespace DPReporting
                                 bearer = "Bearer " + loginToken.AccessToken;
                             }
 
-                            ReportCreator report = new ReportCreator(Configuration, log, bearer);
+                            ReportCreator report = new ReportCreator(Configuration, log, bearer, via);
 
                             //flow for start date reached or passed
-                            FilterBy filter = new FilterBy() { afterdate = DateTime.Today.AddDays(-reportFor), beforedate = DateTime.Now };
+                            FilterBy filter = new FilterBy() { afterdate = DateTime.Today.AddDays(-reportFor), beforedate = DateTime.UtcNow };
+
+                            bool lock_ = await via.LockOnDemand(filter, OnDemand);
 
                             string Emails = null;
                             if (!a.ExtendedProperties?.Keys?.Contains("ReportRecipients") == true)
@@ -271,7 +406,10 @@ namespace DPReporting
                             {
                                 var toAddress = new MailAddress(toEmails.First());
 
-                                MailMessage mailMessage = new MailMessage(new MailAddress(smtpServer.FromAddress), toAddress);
+                                MailMessage mailMessage = new MailMessage();
+                                mailMessage.From = new MailAddress(smtpServer.FromAddress, smtpServer.FromName);
+
+                                mailMessage.To.Add(toEmails.First());
 
                                 if (toEmails.Count() > 1)
                                 {
@@ -279,51 +417,22 @@ namespace DPReporting
                                         mailMessage.CC.Add(toemail);
                                 }
 
-                                string filename = null;
-
-                                if (reportBytes?.Count() > 0)
-                                {
-                                    ReportFileManagement store = new ReportFileManagement(Configuration["ReportPath"], log);
-                                    filename = store.SaveReportFile(reportBytes, OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet), OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet));
-                                }
-
-                                if (filename == null || Configuration["PathToEmail"] == null)
-                                {
-                                    log.logMessage += $"unable to store report file or PathToEmail not set";
-                                    log.AddLogsToFile(DateTime.UtcNow);
-
-                                    await via.UnLockOnDemand();
-
-                                    OnDemand = await via.GetOnDemandModel();
-
-                                    continue;
-                                }
+                                //only metrics report with schedule
+                                Stream file = new MemoryStream(reportBytes);
+                                mailMessage.Attachments.Add(new Attachment(file, "DPReport-" + filter.afterdate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyyMMdd") + "-" + filter.beforedate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyyMMdd") + ".xlsx"));
 
                                 #region mail content
 
                                 string emailBody = null;
 
-                                if (reportJob.Item2)
-                                {
-                                    emailBody = "Hello, \n\nHere's the survey dispatch report for the time period- ";
-                                    emailBody += DateTime.Today.AddDays(-reportFor).ToString("yyyy-MM-dd") + " - " + DateTime.Now.ToString("yyyy-MM-dd") + ".\n\n";
-                                    emailBody += Configuration["PathToEmail"] + filename + "\n\n";
-                                    emailBody += "Thanks,\n";
-                                    emailBody += "Cisco Webex Team\n\n";
-                                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com";
-                                }
-                                else
-                                {
-                                    emailBody = "Hello, \n\nHere's the survey dispatch report for the time period- ";
-                                    emailBody += DateTime.Today.AddDays(-reportFor).ToString("yyyy-MM-dd") + " - " + DateTime.Now.ToString("yyyy-MM-dd") + ".\n\n";
-                                    emailBody += Configuration["PathToEmail"] + filename + "\n\n";
-                                    emailBody += "Please note, the attached file does not contain data splits and pivot table because no invitations were sent during the selected date range for this report.. To view data splits and pivot tables, generate a report for a different date range during which invites were sent." + ".\n\n";
-                                    emailBody += "Thanks,\n";
-                                    emailBody += "Cisco Webex Team\n\n";
-                                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com";
-                                }
+                                mailMessage.IsBodyHtml = true;
 
-                                string emailSubject = "[Cisco WXM] Survey dispatch performance report";
+                                if (reportJob.Item2)
+                                    emailBody = EmailBodyMaker(false, false, filter.afterdate.AddMinutes(OnDemand.TimeOffSet), filter.beforedate.AddMinutes(OnDemand.TimeOffSet));
+                                else
+                                    emailBody = EmailBodyMaker(false, true, filter.afterdate.AddMinutes(OnDemand.TimeOffSet), filter.beforedate.AddMinutes(OnDemand.TimeOffSet));
+
+                                string emailSubject = "Survey Dispatch Operations Metrics For Cisco Webex Experience Management";
 
                                 #endregion
 
@@ -354,6 +463,15 @@ namespace DPReporting
 
                             //write string to file
                             System.IO.File.WriteAllText(Configuration["LogFilePath"] + "/startdate.json", json);
+
+                            bool unlock = await via.UnLockOnDemand();
+
+                            if (unlock == false)
+                            {
+                                log.logMessage += $"Unable to unlock on demand report";
+                            }
+                            else
+                                OnDemand = await via.GetOnDemandModel();
                         }
                     }
                     catch (Exception ex)
@@ -415,30 +533,70 @@ namespace DPReporting
                                 bearer = "Bearer " + loginToken.AccessToken;
                             }
 
-                            ReportCreator report = new ReportCreator(Configuration, log, bearer);
+                            ReportCreator report = new ReportCreator(Configuration, log, bearer, via);
 
-                            Tuple<byte[], bool> reportJob = await report.GetOperationMetricsReport(OnDemand.Filter);
+                            List<string> filenames = new List<string>();
 
-                            if (reportJob == null)
+                            Tuple<byte[], bool> reportJob = null;
+
+                            if (!OnDemand.OnlyLogs)
                             {
-                                log.logMessage += "Error in generating the report or no data present to generate report";
-                                log.AddLogsToFile(DateTime.UtcNow);
+                                reportJob = await report.GetOperationMetricsReport(OnDemand.Filter, OnDemand.OnlyLogs);
+
+                                if (reportJob == null)
+                                {
+                                    log.logMessage += "Error in generating the report or no data present to generate report";
+                                    log.AddLogsToFile(DateTime.UtcNow);
+                                }
+                            }
+                            else
+                            {
+                                long total = await via.GetMergedDataCount(OnDemand.Filter);
+
+                                if (total > 0)
+                                {
+                                    for(int i = 0; i <= total; i = i + 100000)
+                                    {
+                                        Tuple<byte[], bool> detailedlogs = await report.GetOperationMetricsReport(OnDemand.Filter, OnDemand.OnlyLogs, i, 100000);
+
+                                        if (detailedlogs.Item1?.Count() > 0)
+                                        {
+                                            ReportFileManagement store = new ReportFileManagement(ReportPath, log);
+                                            string filename = store.SaveReportFile(detailedlogs.Item1, OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet), OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet), OnDemand.TimeOffSet);
+
+                                            if (filename == null || PathToEmail == null)
+                                            {
+                                                log.logMessage += $"unable to store report file or PathToEmail not set";
+                                                log.AddLogsToFile(DateTime.UtcNow);
+
+                                                await via.UnLockOnDemand();
+
+                                                OnDemand = await via.GetOnDemandModel();
+
+                                                continue;
+                                            }
+
+                                            filenames.Add(filename);
+                                        }
+                                        else
+                                        {
+                                            log.logMessage += $"unable to generate detailed logs report";
+                                            log.AddLogsToFile(DateTime.UtcNow);
+
+                                            await via.UnLockOnDemand();
+
+                                            OnDemand = await via.GetOnDemandModel();
+
+                                            continue;
+                                        }
+                                    }
+                                }
                             }
 
                             byte[] reportBytes = reportJob?.Item1;
 
-                            if (reportBytes == null)
+                            if ((reportBytes?.Count() > 0 && !OnDemand.OnlyLogs) || (filenames.Count() > 0 && OnDemand.OnlyLogs))
                             {
-                                log.logMessage += "Error in generating the report;";
-                                log.AddLogsToFile(DateTime.UtcNow);
-                            }
-
-                            if (reportBytes?.Count() > 0)
-                            {
-                                //var toAddress = new MailAddress(toEmails.First());
-
-                                //MailMessage mailMessage = new MailMessage(new MailAddress(smtpServer.FromAddress), toAddress);
-
                                 MailMessage mailMessage = new MailMessage();
                                 mailMessage.From = new MailAddress(smtpServer.FromAddress, smtpServer.FromName);
 
@@ -450,51 +608,39 @@ namespace DPReporting
                                         mailMessage.CC.Add(toemail);
                                 }
 
-                                string filename = null;
-
-                                if (reportBytes?.Count() > 0)
+                                if (!OnDemand.OnlyLogs)
                                 {
-                                    ReportFileManagement store = new ReportFileManagement(Configuration["ReportPath"], log);
-                                    filename = store.SaveReportFile(reportBytes, OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet), OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet));
+                                    Stream file = new MemoryStream(reportBytes);
+                                    mailMessage.Attachments.Add(new Attachment(file, "DPReport-" + OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyyMMdd") + "-" + OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyyMMdd") + ".xlsx"));
                                 }
-
-                                if (filename == null || Configuration["PathToEmail"] == null)
-                                {
-                                    log.logMessage += $"unable to store report file or PathToEmail not set";
-                                    log.AddLogsToFile(DateTime.UtcNow);
-
-                                    await via.UnLockOnDemand();
-
-                                    OnDemand = await via.GetOnDemandModel();
-
-                                    continue;
-                                }
-
                                 #region email content
 
                                 string emailBody = null;
 
-                                if (reportJob.Item2)
+                                mailMessage.IsBodyHtml = true;
+
+                                if (reportJob?.Item2 == true || filenames?.Count() > 0)
                                 {
-                                    emailBody = "Hello, \n\nHere's the survey dispatch report for the time period- ";
-                                    emailBody += OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyy-MM-dd") + " - " + OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyy-MM-dd") + ".\n\n";
-                                    emailBody += Configuration["PathToEmail"] + filename + "\n\n";
-                                    emailBody += "Thanks,\n";
-                                    emailBody += "Cisco Webex Team\n\n";
-                                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com";
+                                    if (OnDemand.OnlyLogs)
+                                        emailBody = EmailBodyMaker(true, false, OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet), OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet), filenames, PathToEmail);
+                                    else
+                                        emailBody = EmailBodyMaker(false, false, OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet), OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet));
                                 }
                                 else
                                 {
-                                    emailBody = "Hello, \n\nHere's the survey dispatch report for the time period- ";
-                                    emailBody += OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyy-MM-dd") + " - " + OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet).ToString("yyyy-MM-dd") + ".\n\n";
-                                    emailBody += Configuration["PathToEmail"] + filename + "\n\n";
-                                    emailBody += "Please note, the attached file does not contain data splits and pivot table because no invitations were sent during the selected date range for this report.. To view data splits and pivot tables, generate a report for a different date range during which invites were sent." + ".\n\n";
-                                    emailBody += "Thanks,\n";
-                                    emailBody += "Cisco Webex Team\n\n";
-                                    emailBody += "We are here to help. Contact us anytime at webexxm-support@cisco.com";
+                                    if (OnDemand.OnlyLogs)
+                                        emailBody = EmailBodyMaker(true, true, OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet), OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet), filenames, PathToEmail);
+                                    else
+                                        emailBody = EmailBodyMaker(false, true, OnDemand.Filter.afterdate.AddMinutes(OnDemand.TimeOffSet), OnDemand.Filter.beforedate.AddMinutes(OnDemand.TimeOffSet));
                                 }
+                                
 
-                                string emailSubject = "[Cisco WXM] Survey dispatch performance report";
+                                string emailSubject = "";
+
+                                if (!OnDemand.OnlyLogs)
+                                    emailSubject = "Survey Dispatch Operations Metrics For Cisco Webex Experience Management";
+                                else
+                                    emailSubject = "Survey Dispatch Detailed Logs For Cisco Webex Experience Management";
 
                                 #endregion
 
@@ -512,6 +658,7 @@ namespace DPReporting
                             if (unlock == false)
                             {
                                 log.logMessage += $"Unable to unlock on demand report";
+                                OnDemand = await via.GetOnDemandModel();
                             }
                             else
                                 OnDemand = await via.GetOnDemandModel();
@@ -526,24 +673,6 @@ namespace DPReporting
                         log.logMessage += $"Error in on demand report task {ex.Message}    {ex.StackTrace}";
                         log.AddLogsToFile(DateTime.UtcNow);
                         
-                        continue;
-                    }
-                    try
-                    {
-                        if (NextUpload < DateTime.UtcNow)
-                        {
-                            await d.DataUploadTask();
-                            NextUpload = NextUpload.AddMinutes(RunUploadEvery);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        bool unlock = await via.UnLockOnDemand();
-
-                        OnDemand = await via.GetOnDemandModel();
-
-                        log.logMessage += $"Error in data upload process {ex.Message}    {ex.StackTrace}";
-                        log.AddLogsToFile(DateTime.UtcNow);
                         continue;
                     }
                 }
