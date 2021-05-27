@@ -9,7 +9,7 @@ var isProduction = false;
 var customBaseURL = sessionStorage.getItem("customBaseURL");
 
 
-var BASE_URL = "https://invitations-api.azurewebsites.net";
+var BASE_URL = "https://qatesting.cemdelivery.com/qa2";
 
 /**
  * Global configuration for setting the endpiont
@@ -482,7 +482,7 @@ function getDispatcherlist() {
     };
     $.ajax(settings).done(function (data) {
         if (data) {
-            
+            getPrefilledConfigured();
             getReportDetails();
             fetchSmtpSettings();
             //getPrefilledConfigured();
@@ -733,27 +733,7 @@ function vendorEmailUpdateAPI(event) {
     }
     if (!$(".form-error-msg").is(":visible")) {
         // set the Custom SMTP value inside the preview div and hidding the all error message
-        document.getElementById(
-            "setSenderName"
-        ).innerText = document.getElementById("getSenderName").value;
-        document.getElementById(
-            "setEmailAddress"
-        ).innerText = document.getElementById("getEmailAddress").value;
-        document.getElementById(
-            "setSmtpServer"
-        ).innerText = document.getElementById("getSmtpServer").value;
-        document.getElementById(
-            "setSmtpUsername"
-        ).innerText = document.getElementById("getSmtpUsername").value;
-        document.getElementById("setPort").innerText = document.getElementById(
-            "getPort"
-        ).value;
-        document.getElementById("setEnableSsl").innerText = document.getElementById(
-            "getEnableSsl"
-        ).value;
-        getElement(".emailEditedValue").style.display = "block";
-        document.getElementById("myBtn").innerText = "Edit Details For Custom SMTP";
-        document.getElementById("error-msg").style.display = "none";
+      
         $(function () {
             // created Customer SMTP object details for Post API
             const object = {
@@ -777,7 +757,19 @@ function vendorEmailUpdateAPI(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("value is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+                 document.getElementById("getSenderName").value = "";
+                document.getElementById("getEmailAddress").value = "";
+                 document.getElementById("getSmtpServer").value = "" ;
+               document.getElementById("getSmtpUsername").value = "";
+               
+               document.getElementById("getSmtpPaValue").value = "";
+                document.getElementById(
+                    "getPort"
+                ).value = "" ;
+                document.getElementById("error-msg").style.display = "block";
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
@@ -785,6 +777,27 @@ function vendorEmailUpdateAPI(event) {
                 if (data) {
                     alert("Vendor details saved successfully.");
                     $('.get-smtp-settings').show();
+                    document.getElementById(
+                        "setSenderName"
+                    ).innerText = document.getElementById("getSenderName").value;
+                    document.getElementById(
+                        "setEmailAddress"
+                    ).innerText = document.getElementById("getEmailAddress").value;
+                    document.getElementById(
+                        "setSmtpServer"
+                    ).innerText = document.getElementById("getSmtpServer").value;
+                    document.getElementById(
+                        "setSmtpUsername"
+                    ).innerText = document.getElementById("getSmtpUsername").value;
+                    document.getElementById("setPort").innerText = document.getElementById(
+                        "getPort"
+                    ).value;
+                    document.getElementById("setEnableSsl").innerText = document.getElementById(
+                        "getEnableSsl"
+                    ).value;
+                    getElement(".emailEditedValue").style.display = "block";
+                    document.getElementById("myBtn").innerText = "Edit Details For Custom SMTP";
+                    document.getElementById("error-msg").style.display = "none";
                 }
             });
             return false;
@@ -814,15 +827,7 @@ function vendorMandrillUpdateAPI(event) {
     }
     if (!$(".form-error-msg").is(":visible")) {
         // set the Custom SMTP value inside the preview div and hidding the all error message
-        document.getElementById(
-            "setMandrillUrl"
-        ).innerText = document.getElementById("getMandrillUrl").value;
-        document.getElementById(
-            "setMandrillApiKey"
-        ).innerText = document.getElementById("getMandrillApiKey").value;
-        
-        document.getElementById("myBtn").innerText = "Edit Details For Mandrill";
-        document.getElementById("error-msg").style.display = "none";
+
         $(function () {
             // created Customer SMTP object details for Post API
             const object = {
@@ -846,13 +851,27 @@ function vendorMandrillUpdateAPI(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("value is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+                 document.getElementById("getMandrillUrl").value = "";
+                 document.getElementById("getMandrillApiKey").value = "";
+                document.getElementById("error-msg").style.display = "block";
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
                 // post Success message
                 if (data) {
                     alert("Vendor details saved successfully.");
+                    document.getElementById(
+                        "setMandrillUrl"
+                    ).innerText = document.getElementById("getMandrillUrl").value;
+                    document.getElementById(
+                        "setMandrillApiKey"
+                    ).innerText = document.getElementById("getMandrillApiKey").value;
+                    
+                    document.getElementById("myBtn").innerText = "Edit Details For Mandrill";
+                    document.getElementById("error-msg").style.display = "none";
                     document.querySelector('.mandrillPostValueEdited').style.display ="block";
                 }
             });
@@ -884,18 +903,7 @@ function vendorPinnacleUpdateAPI(event) {
     }
     if (!$(".form-error-msg").is(":visible")) {
         // set the Pinnacle value inside the preview div and hidding the all error message
-        document.getElementById(
-            "setpinnacleSenderID"
-        ).innerText = document.getElementById("getpinnacleSenderId").value;
-        document.getElementById(
-            "setpinnacleEndPoint"
-        ).innerText = document.getElementById("getpinnacleEndPoint").value;
-        document.getElementById(
-            "setpinnacleApiKey"
-        ).innerText = document.getElementById("getpinnacleApiKey").value;
-        document.getElementById(
-            "setpinnacleBatchSize"
-        ).innerText = document.getElementById("getpinnacleBatchSize").value;
+        
         
         
         $(function () {
@@ -921,7 +929,16 @@ function vendorPinnacleUpdateAPI(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("value is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+                document.getElementById("getpinnacleSenderId").value = "";
+                document.getElementById("getpinnacleEndPoint").value = "";
+                document.getElementById("getpinnacleApiKey").value = "";
+                document.getElementById("getpinnacleBatchSize").value = "";
+                document.getElementById("error-msg1").style.display = "block";
+              } else {
+                  alert("API Error");
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
@@ -929,6 +946,18 @@ function vendorPinnacleUpdateAPI(event) {
                 if (data) {
                     alert("Vendor details saved successfully.");
                     document.getElementById("myBtn1").innerText = "Edit Details For Pinnacle";
+                    document.getElementById(
+                        "setpinnacleSenderID"
+                    ).innerText = document.getElementById("getpinnacleSenderId").value;
+                    document.getElementById(
+                        "setpinnacleEndPoint"
+                    ).innerText = document.getElementById("getpinnacleEndPoint").value;
+                    document.getElementById(
+                        "setpinnacleApiKey"
+                    ).innerText = document.getElementById("getpinnacleApiKey").value;
+                    document.getElementById(
+                        "setpinnacleBatchSize"
+                    ).innerText = document.getElementById("getpinnacleBatchSize").value;
                     document.getElementById("error-msg1").style.display = "none";
                     document.querySelector(".pinnacle").style.display = "block";
                 }
@@ -961,21 +990,7 @@ function vendorvfsmsUpdateAPI(event) {
     }
     if (!$(".form-error-msg").is(":visible")) {
         // set the vfsms value inside the preview div and hidding the all error message
-        document.getElementById(
-            "setvfsmsSenderID"
-        ).innerText = document.getElementById("getvfsmsSenderId").value;
-        document.getElementById(
-            "setvfsmsEndPoint"
-        ).innerText = document.getElementById("getvfsmsEndPoint").value;
-        document.getElementById(
-            "setvfsmsUserId"
-        ).innerText = document.getElementById("getvfsmsUserId").value;
-        document.getElementById(
-            "setvfsmsPassword"
-        ).innerText = document.getElementById("getvfsmPValue").value;
-        document.getElementById(
-            "setvfsmsBatchSize"
-        ).innerText = document.getElementById("getvfsmsBatchSize").value;
+       
         
         
         $(function () {
@@ -1001,13 +1016,39 @@ function vendorvfsmsUpdateAPI(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("value is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+                document.getElementById("getvfsmsSenderId").value ="";
+                document.getElementById("getvfsmsEndPoint").value = "";
+                document.getElementById("getvfsmsUserId").value = "";
+                document.getElementById("getvfsmPValue").value = "";
+                document.getElementById("getvfsmsBatchSize").value = "";
+                document.getElementById("error-msg1").style.display = "block";
+              }
+              else{
+                  alert("API Error")
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
                 // post Success message
                 if (data) {
                     alert("Vendor details saved successfully.");
+                    document.getElementById(
+                        "setvfsmsSenderID"
+                    ).innerText = document.getElementById("getvfsmsSenderId").value;
+                    document.getElementById(
+                        "setvfsmsEndPoint"
+                    ).innerText = document.getElementById("getvfsmsEndPoint").value;
+                    document.getElementById(
+                        "setvfsmsUserId"
+                    ).innerText = document.getElementById("getvfsmsUserId").value;
+                    document.getElementById(
+                        "setvfsmsPassword"
+                    ).innerText = document.getElementById("getvfsmPValue").value;
+                    document.getElementById(
+                        "setvfsmsBatchSize"
+                    ).innerText = document.getElementById("getvfsmsBatchSize").value;
                     document.getElementById("myBtn1").innerText = "Edit Details For VF SMS";
                     document.getElementById("error-msg1").style.display = "none";
                     document.querySelector(".vfsms").style.display = "block";
@@ -1038,26 +1079,8 @@ function venderMessagebird(event) {
     }
 
     if (!$(".form-error-msg").is(":visible")) {
-        document.getElementById(
-            "setMessageBird"
-        ).innerText = document.getElementById("getMessageUrl").value;
-        document.getElementById("setAccessKey").innerText = document.getElementById(
-            "getAccessKey"
-        ).value;
-        document.getElementById(
-            "setOriginator"
-        ).innerText = document.getElementById("getOriginator").value;
-        document.getElementById("setShortCode").innerText = document.getElementById(
-            "getShortCode"
-        ).value;
-        document.getElementById("setMultiLanguage").innerText = 
-        $(
-            "#getMultiLanguage option:selected"
-        ).text();
-        document.getElementById("myBtn1").innerText =
-            "Edit Details For Message Bird";
-        getElement(".MessageBird").style.display = "block";
-        document.getElementById("error-msg1").style.display = "none";
+      
+       
         $(function () {
             // Created Message Bird object details for Post API
             const object = {
@@ -1081,13 +1104,47 @@ function venderMessagebird(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("post email responses is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+                getElement(".MessageBird").style.display = "none";
+                document.getElementById("getMessageUrl").value = "";
+                document.getElementById(
+                    "getAccessKey"
+                ).value = "";
+                document
+                document.getElementById("getOriginator").value = "";
+                document.getElementById(
+                    "getShortCode"
+                ).value = "";
+
+                document.getElementById("#error-msg1").style.display = "block";
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
                 // Post the value to vendor details to the vendor API
                 if (data) {
                     alert("Vendor details saved successfully.");
+                    document.getElementById(
+                        "setMessageBird"
+                    ).innerText = document.getElementById("getMessageUrl").value;
+                    document.getElementById("setAccessKey").innerText = document.getElementById(
+                        "getAccessKey"
+                    ).value;
+                    document.getElementById(
+                        "setOriginator"
+                    ).innerText = document.getElementById("getOriginator").value;
+                    document.getElementById("setShortCode").innerText = document.getElementById(
+                        "getShortCode"
+                    ).value;
+                    document.getElementById("setMultiLanguage").innerText = 
+                    $(
+                        "#getMultiLanguage option:selected"
+                    ).text();
+                    document.getElementById("myBtn1").innerText =
+                        "Edit Details For Message Bird";
+                    getElement(".MessageBird").style.display = "block";
+                    document.getElementById("error-msg1").style.display = "none";
                 }
             });
             return false;
@@ -1114,24 +1171,7 @@ function vendorSparkPost(event) {
         }
     }
     if (!$(".form-error-msg").is(":visible")) {
-        document.getElementById("setSparkUrl").innerText = document.getElementById(
-            "getSparkUrl"
-        ).value;
-        document.getElementById(
-            "setSparkApiKey"
-        ).innerText = document.getElementById("getSparkApiKey").value;
-        document.getElementById(
-            "setSparkSenderEmail"
-        ).innerText = document.getElementById("getSparkSenderEmail").value;
-        document.getElementById(
-            "setSparkSenderName"
-        ).innerText = document.getElementById("getSparkSenderName").value;
-        document.getElementById(
-            "setSparkBatchSize"
-        ).innerText = document.getElementById("getSparkBatchSize").value;
-        getElement(".SparkPostValueEdited").style.display = "block";
-        document.getElementById("myBtn").innerText = "Edit Details For Spark Post";
-        document.getElementById("error-msg").style.display = "none";
+        
         $(function () {
             const object = {
                 //Creating the object for SparkPost
@@ -1155,12 +1195,43 @@ function vendorSparkPost(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("post email responses is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              document.getElementById(
+                    "getSparkUrl"
+                ).value;
+                 document.getElementById("getSparkApiKey").value = "";
+                 document.getElementById(
+                    "getSparkUrl"
+                ).value = "";
+                document.getElementById("getSparkSenderEmail").value = "";
+                  document.getElementById("getSparkSenderName").value = "";
+                document.getElementById("getSparkBatchSize").value = "";
+                document.getElementById("error-msg").style.display = "block";
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
                 if (data) {
                     alert("Vendor details saved successfully.");
+                    document.getElementById("setSparkUrl").innerText = document.getElementById(
+                        "getSparkUrl"
+                    ).value;
+                    document.getElementById(
+                        "setSparkApiKey"
+                    ).innerText = document.getElementById("getSparkApiKey").value;
+                    document.getElementById(
+                        "setSparkSenderEmail"
+                    ).innerText = document.getElementById("getSparkSenderEmail").value;
+                    document.getElementById(
+                        "setSparkSenderName"
+                    ).innerText = document.getElementById("getSparkSenderName").value;
+                    document.getElementById(
+                        "setSparkBatchSize"
+                    ).innerText = document.getElementById("getSparkBatchSize").value;
+                    getElement(".SparkPostValueEdited").style.display = "block";
+                    document.getElementById("myBtn").innerText = "Edit Details For Spark Post";
+                    document.getElementById("error-msg").style.display = "none";
                 }
             });
             return false;
@@ -1185,12 +1256,7 @@ function vendorSmsUpdateAPI(event) {
         }
     }
     if (!$(".form-error-msg").is(":visible")) {
-        document.getElementById("setSmsurl").innerText = document.getElementById(
-            "getSmsurl"
-        ).value;
-        getElement(".smsEditedValue").style.display = "block";
-        document.getElementById("myBtn1").innerText = "Edit Details For Custom SMS";
-        document.getElementById("error-msg1").style.display = "none";
+        
         $(function () {
             const object = {
                 //Creating the object for CustomSMS
@@ -1213,12 +1279,24 @@ function vendorSmsUpdateAPI(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("post email responses is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+                document.getElementById(
+                    "getSmsurl"
+                ).value = "";
+                document.getElementById("error-msg1").style.display = "block";
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
                 if (data) {
                     alert("Vendor details saved successfully.");
+                    document.getElementById("setSmsurl").innerText = document.getElementById(
+                        "getSmsurl"
+                    ).value;
+                    getElement(".smsEditedValue").style.display = "block";
+                    document.getElementById("myBtn1").innerText = "Edit Details For Custom SMS";
+                    document.getElementById("error-msg1").style.display = "none";
                 }
             });
             return false;
@@ -1261,7 +1339,9 @@ function superAdminNotificationUpdateAPI(event) {
                 },
                 data: JSON.stringify(object),
                 error: function (xhr, error) {
-                    alert("post email responses is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
                 },
             };
             $.ajax(settings).done(function (data) {
@@ -1499,7 +1579,12 @@ function saveChanges(event) {
             data: JSON.stringify(getUpdateDispatcherValue),
            
             error: function (xhr, error) {
+                if(xhr.status === 400){
+                    alert(xhr.responseJSON.Description);
+                  }
+                  else{
                 alert("Dispatches updation is unsuccessful");
+                  }
             },
         };
         $.ajax(settings).done(function (data) {
@@ -1536,7 +1621,12 @@ function getSparkPostData() {
         },
 
         error: function (xhr, error) {
-            alert("API error"); // show the API error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
+            alert("API error");
+              } // show the API error here
         },
     };
     $.ajax(settings1).done(function (oResponse) {
@@ -1597,7 +1687,12 @@ function getMandrillData() {
         },
 
         error: function (xhr, error) {
-            alert("API error"); // show the API error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
+            alert("API error");
+              } // show the API error here
         },
     };
     $.ajax(settings1).done(function (oResponse) {
@@ -1647,7 +1742,12 @@ function getPinnacleSMSData() {
         },
 
         error: function (xhr, error) {
-            alert("API error"); // show the API error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
+            alert("API error");
+              } // show the API error here
         },
     };
     $.ajax(settings1).done(function (oResponse) {
@@ -1707,7 +1807,12 @@ function getvfsSMSData() {
         },
 
         error: function (xhr, error) {
-            alert("API error"); // show the API error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
+            alert("API error");
+              } // show the API error here
         },
     };
     $.ajax(settings1).done(function (oResponse) {
@@ -1771,7 +1876,12 @@ function getCustomSMSData() {
 
         error: function (xhr, error) {
             //display the API Error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
             alert("API error");
+              }
         },
     };
     $.ajax(settings).done(function (oResponse) {
@@ -1819,7 +1929,13 @@ function getCustomSMTPData() {
 
         error: function (xhr, error) {
             //display the API msg Error here
+            
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
             alert("API error");
+              }
         },
     };
     $.ajax(settings).done(function (oResponse) {
@@ -1889,7 +2005,12 @@ function getMessageBirdData() {
 
         error: function (xhr, error) {
             //display the API msg Error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
             alert("API error");
+              }
         },
     };
     $.ajax(settings1).done(function (oResponse) {
@@ -1952,7 +2073,12 @@ function getSuperAdminNotificationData() {
 
         error: function (xhr, error) {
             //display the API Error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
+              else{
             alert("API error");
+              }
         },
     };
     $.ajax(settings).done(function (oResponse) {
@@ -2149,14 +2275,21 @@ $('#excelDownload').show();
                 
                 
             },
+           
           
         },
         data: JSON.stringify(object1),
     
         error: function (xhr, error) {
+              if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+                $('#log-spinner').hide();
+              }
+              else{
             //display the API msg Error here
             alert("We faced an error while retrieving logs. Please try again. If issue persists, log out and log back in and try again.");
             $('#log-spinner').hide();
+              }
            
         },
     };
@@ -2481,7 +2614,9 @@ function getReportDetails(){
         },
         data: JSON.stringify(reportObject),
         error: function (xhr, error) {
-            alert("value is not posted");
+              if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
             $("#block-report").hide();
             
         },
@@ -2619,6 +2754,11 @@ function getReportDetails(){
             //     }
 
             //     window.open(current, "_self");
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }else{
+                  alert("GetQualifiedPrefills API is not working");
+              }
             $('#icon-block1').hide();
             $('#getQualifiedPrefills').show();
             console.log("GetQualifiedPrefills API is not working");
@@ -2682,9 +2822,15 @@ function getReportDetails(){
             //     }
 
             //     window.open(current, "_self");
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }else{
+                  alert("GetPrefillSlices API is not working");
+              }
+            
             $('#icon-block1').hide();
                 $('#getQualifiedPrefills').show();
-          alert("GetPrefillSlices API is not working");
+          
         
         },
     };
@@ -2751,7 +2897,9 @@ function getReportDetails(){
             },
             data: JSON.stringify(storeSlicedData),
             error: function (xhr, error) {
-                alert("value is not posted");
+                  if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
             },
         };
         $.ajax(settings).done(function (data) {
@@ -2834,7 +2982,12 @@ function getReportDetails(){
         },
 
         error: function (xhr, error) {
-            alert("Custom SMTP Settings not set"); // show the API error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }else{
+                  alert("Custom SMTP Settings not set");
+              }
+             // show the API error here
         },
     };
     $.ajax(settings1).done(function (oResponse) {
@@ -2884,6 +3037,11 @@ function getReportDetails(){
 
         error: function (xhr, error) {
             //display the API msg Error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }else{
+                  alert("CustomSMTP data is not found");
+              }
             alert("CustomSMTP data is not found");
         },
     };
@@ -2952,7 +3110,12 @@ function sendTestEmail(){
         },
 
         error: function (xhr, error) {
-            alert("Custom SMTP Settings not found"); // show the API error here
+            if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }else{
+                  alert("CustomSMTP data is not found");
+              }
+             // show the API error here
         },
     };
     $.ajax(settings1).done(function (xhr) {
@@ -2994,7 +3157,9 @@ function UpdateCustomSmtpSettings(event) {
                 },
                 data: JSON.stringify(object1),
                 error: function (xhr, error) {
-                    alert("value is not posted");
+                      if(xhr.status === 400){
+                alert(xhr.responseJSON.Description);
+              }
                 },
             };
             $.ajax(settings).done(function (data) {

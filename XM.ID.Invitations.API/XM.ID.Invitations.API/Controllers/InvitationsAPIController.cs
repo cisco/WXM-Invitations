@@ -43,7 +43,6 @@ namespace Invitations.Controllers
                 if (request == null)
                     return BadRequest("Bad Request");
 
-                Util.CleanObject(request);
                 // Fetch account configuration to be used through the whole request.
                 AccountConfiguration accConfiguration = GetAccountConfiguration().Result;
                 if (accConfiguration == null)
@@ -159,7 +158,6 @@ namespace Invitations.Controllers
             CultureInfo provider = CultureInfo.InvariantCulture;
             try
             {
-                Util.CleanObject(filterObject);
                 // Validate Auth token(Basic or Bearer) and reject if fail.
                 if (!await AuthTokenValidation.ValidateBearerToken(authToken))
                 {
@@ -239,7 +237,6 @@ namespace Invitations.Controllers
             //{"afterdate":"","beforedate":""} request format
             try
             {
-                Util.CleanObject(InputFilter);
                 //Validate Auth token(Basic or Bearer) and reject if fail.
                 if (!await AuthTokenValidation.ValidateBearerToken(authToken))
                 {
@@ -394,7 +391,8 @@ namespace Invitations.Controllers
                 if (prefills != null)
                     return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status200OK, prefills);
                 else
-                    return BadRequest("No prefill slices configured");
+                    return StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status200OK, 
+                        (await ViaMongoDB.UpdateAccountConfiguration_PrefillSlices(new List<PrefillSlicing>()))?.PrefillsForSlices);
             }
             catch (Exception ex)
             {

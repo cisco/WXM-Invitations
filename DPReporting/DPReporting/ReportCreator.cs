@@ -525,12 +525,12 @@ namespace DPReporting
                                 row["Displayed Status"] = merged.Displayed ? "Displayed" : "Not Displayed";
                                 row["Message Sequence"] = j == 0 ? "Message 1" : "Message " + (j + 1).ToString();
 
-                                if (merged.Responses?.Any(x => x.QuestionId == ZoneQuestion.Id) == true)
-                                    row["Zone"] = merged.Responses.Where(x => x.QuestionId == ZoneQuestion.Id).FirstOrDefault().TextInput;
-                                if (merged.Responses?.Any(x => x.QuestionId == TouchPointQuestion.Id) == true)
-                                    row["Touchpoint"] = merged.Responses.Where(x => x.QuestionId == TouchPointQuestion.Id).FirstOrDefault().TextInput;
-                                if (merged.Responses?.Any(x => x.QuestionId == LocationQuestion.Id) == true)
-                                    row["Location"] = merged.Responses.Where(x => x.QuestionId == LocationQuestion.Id).FirstOrDefault().TextInput;
+                                if (merged.Responses?.Any(x => x.QuestionId == ZoneQuestion?.Id) == true)
+                                    row["Zone"] = merged.Responses.Where(x => x.QuestionId == ZoneQuestion?.Id).FirstOrDefault().TextInput;
+                                if (merged.Responses?.Any(x => x.QuestionId == TouchPointQuestion?.Id) == true)
+                                    row["Touchpoint"] = merged.Responses.Where(x => x.QuestionId == TouchPointQuestion?.Id).FirstOrDefault().TextInput;
+                                if (merged.Responses?.Any(x => x.QuestionId == LocationQuestion?.Id) == true)
+                                    row["Location"] = merged.Responses.Where(x => x.QuestionId == LocationQuestion?.Id).FirstOrDefault().TextInput;
 
                                 dt.Rows.Add(row);
                             }
@@ -1865,6 +1865,7 @@ namespace DPReporting
             }
             catch (Exception ex)
             {
+                log.logMessage += $"Error generating metrics report while creating table {ex.Message}    {ex.StackTrace}";
                 return null;
             }
         }

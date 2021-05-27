@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
+using XM.ID.Invitations.API.Middleware;
 using XM.ID.Invitations.Net;
 using XM.ID.Net;
 
@@ -96,7 +97,7 @@ namespace Invitations
 
             //Not needed currently since running behind kestrel as http endpoint only
             //app.UseHttpsRedirection();
-
+            app.UseScriptingMiddleware();
             app.UseRouting();
 
             app.UseAuthorization();

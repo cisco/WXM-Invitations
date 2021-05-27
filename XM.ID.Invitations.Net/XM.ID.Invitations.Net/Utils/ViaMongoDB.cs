@@ -120,8 +120,14 @@ namespace XM.ID.Invitations.Net
             return await _AccountConfiguration.Find(_ => true).FirstOrDefaultAsync();
         }
 
-        public async Task<AccountConfiguration> AddOrUpdateAccountConfiguration_WXMFields(string adminUser, string apiKey, string user, string baseUrl)
+        public async Task<AccountConfiguration> AddOrUpdateAccountConfiguration_WXMFields(string adminUser, string apiKey, string user, string baseUrl,
+            string primaryRole)
         {
+            AccountConfiguration account = await _AccountConfiguration.Find(x => true).FirstOrDefaultAsync();
+            if ((account == null || string.IsNullOrEmpty(account.WXMAdminUser)) && (primaryRole != "User"))
+            {
+                throw new Exception(SharedSettings.AdminLoginError);
+            }
             Dictionary<string, string> defaultExtendedProperties = new Dictionary<string, string>
             {
                 { "BatchingQueue", "inmemory" },
@@ -135,11 +141,11 @@ namespace XM.ID.Invitations.Net
                 .SetOnInsert(x => x.Id, ObjectId.GenerateNewId().ToString())
                 .SetOnInsert(x => x.Vendors, null)
                 .SetOnInsert(x => x.ExtendedProperties, defaultExtendedProperties)
+                .SetOnInsert(x => x.WXMAPIKey, apiKey)
+                .SetOnInsert(x => x.WXMUser, user)
                 .Set(x => x.Queue, null)
                 .Set(x => x.WXMAdminUser, adminUser)
-                .Set(x => x.WXMAPIKey, apiKey)
-                .Set(x => x.WXMBaseURL, baseUrl)
-                .Set(x => x.WXMUser, user);
+                .Set(x => x.WXMBaseURL, baseUrl);
             var opts = new FindOneAndUpdateOptions<AccountConfiguration> { IsUpsert = true, ReturnDocument = ReturnDocument.After };
             return await _AccountConfiguration.FindOneAndUpdateAsync<AccountConfiguration>(filter, update, opts);
         }

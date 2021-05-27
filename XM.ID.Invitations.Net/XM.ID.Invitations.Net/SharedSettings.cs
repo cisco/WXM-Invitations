@@ -46,6 +46,7 @@ namespace XM.ID.Invitations.Net
         public const string BearerTokenNotGenerated = "Authentication Bearer token not generated. Please ensure you are using correct user credentials.";
         public const string DBUpdateCompleted = "Update to DB completed for bulk token response of size: ";
         public const string BulkTokenException = "Bulk Token API failed due to unknown exception";
+        public const string AdminLoginError = "You have signed in with an account other than administrator account. To configure ACM for the first time please sign in using administrator account.";
 
         public static string GetMaxRecordSizeExceedeed(int limit)
         {

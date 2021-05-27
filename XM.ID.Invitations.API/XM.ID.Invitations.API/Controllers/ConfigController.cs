@@ -225,6 +225,7 @@ namespace Invitations.Controllers
         {
             //{"Token":"", "FromDate":"", "ToDate": "", "UUID":""} request format
 
+
             // Validate Auth token(Basic or Bearer) and reject if fail.
             if (!await AuthTokenValidation.ValidateBearerToken(authToken))
             {

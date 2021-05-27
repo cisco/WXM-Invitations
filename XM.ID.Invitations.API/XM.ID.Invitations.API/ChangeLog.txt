@@ -1,0 +1,4 @@
+﻿Version 1.0.12 (27th May 2021)
+	- Added Middleware to check and disallow all requests containing any other character apart from the whitelist (scripting 
+		characters).
+	- Fixed the error when PrefillSlice array is empty, instead updated DB with empty array.
