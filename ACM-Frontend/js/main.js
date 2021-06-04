@@ -9,7 +9,7 @@ var isProduction = false;
 var customBaseURL = sessionStorage.getItem("customBaseURL");
 
 
-var BASE_URL = "https://qatesting.cemdelivery.com/qa2";
+var BASE_URL = "{DispatchAPI_Base_URL}";
 
 /**
  * Global configuration for setting the endpiont
