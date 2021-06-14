@@ -44,43 +44,47 @@ namespace DPReporting
 
             bool IsScheduleReport = schedule.ScheduleReport;
 
-            if (IsScheduleReport && (reportFor == 0 || hourlyDelay == 0))
+            DateTime StartDate = DateTime.UtcNow;
+
+            if (IsScheduleReport)
             {
-                log.logMessage += " ReportForLastDays and Frequency needs to be a number";
-                log.AddLogsToFile(DateTime.UtcNow);
-                return;
+
+                try
+                {
+                    StartDate = DateTime.ParseExact(schedule.StartDate, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+
+                    bool autopick = schedule.AutoPickLastStartDate;
+
+                    //modify startdate for report in case app crashes and start date is eligible to be changed through the property AutoPickLastStartDate
+                    if (File.Exists(Configuration["LogFilePath"] + "/startdate.json") && autopick)
+                    {
+                        using (StreamReader r = new StreamReader(Configuration["LogFilePath"] + "/startdate.json"))
+                        {
+                            string json = r.ReadToEnd();
+                            List<Dictionary<string, string>> items = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json);
+                            StartDate = DateTime.ParseExact(items[0]["StartDate"], "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.logMessage += "StartDate needs to be in this format- yyyy-MM-ddTHH:mm:ss. needs to be a valid startdate";
+                    log.logMessage += $"Error in report task {ex.Message}    {ex.StackTrace}";
+                    log.AddLogsToFile(DateTime.UtcNow);
+                    return;
+                }
+
+                if (reportFor == 0 || hourlyDelay == 0)
+                {
+                    log.logMessage += " ReportForLastDays and Frequency needs to be a number";
+                    log.AddLogsToFile(DateTime.UtcNow);
+                    return;
+                }
             }
 
             AccountConfiguration a = await via.GetAccountConfiguration();
 
-            var sendOutReport = SetUpReportSender(a);            
-
-            DateTime StartDate = new DateTime();
-
-            try
-            {
-                StartDate = DateTime.ParseExact(schedule.StartDate, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
-
-                bool autopick = schedule.AutoPickLastStartDate;
-
-                //modify startdate for report in case app crashes and start date is eligible to be changed through the property AutoPickLastStartDate
-                if (File.Exists(Configuration["LogFilePath"] + "/startdate.json") && autopick)
-                {
-                    using (StreamReader r = new StreamReader(Configuration["LogFilePath"] + "/startdate.json"))
-                    {
-                        string json = r.ReadToEnd();
-                        List<Dictionary<string, string>> items = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json);
-                        StartDate = DateTime.ParseExact(items[0]["StartDate"], "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                log.logMessage += "StartDate needs to be in this format- yyyy-MM-ddTHH:mm:ss. needs to be a valid startdate";
-                log.logMessage += $"Error in report task {ex.Message}    {ex.StackTrace}";
-                log.AddLogsToFile(DateTime.UtcNow);
-                return;
-            }
+            var sendOutReport = SetUpReportSender(a);
 
             #endregion
 
@@ -88,7 +92,7 @@ namespace DPReporting
             {
                 await RunReportTask(StartDate, reportFor, hourlyDelay, sendOutReport, a);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 log.logMessage += $"Error in report task {ex.Message}    {ex.StackTrace}";
                 return;
