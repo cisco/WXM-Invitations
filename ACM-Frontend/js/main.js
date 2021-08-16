@@ -141,6 +141,10 @@ var superAdminform ={
     "admin-notification-multi-email":"#admin-notification-multi-email"
 }
 
+// two factor Authentication
+var twoFactorAuthentication = {
+    "getOTP":"#getOTP"
+}
 /**
  * Required validation will run of these elements
  */
@@ -181,7 +185,8 @@ var fieldsWithRequiredValidators = [
   "#getvfsmsUserId",
   "#getvfsmPValue",
    "#getvfsmsEndPoint",
-  "#getvfsmsBatchSize"
+  "#getvfsmsBatchSize",
+  "#getOTP",
 ];
 
 /* logTablesHeaders */
@@ -374,6 +379,11 @@ function hidespinner(){
     $(".button-submit span").show();
     $(".button-submit").attr("disabled", false);
 }
+function hideSpinnerTwoFA(){
+    $(".button-save .fa-spin").hide();
+    $(".button-save span").show();
+    $(".button-save").attr("disabled", false);
+}
 // post the login details and  generate the login token to login into config page
 function getAuthenticationToken(user) {
     var settings = {
@@ -418,11 +428,19 @@ function getAuthenticationToken(user) {
                 document.getElementById("show-error").innerText = 'Unable to connect to the server. Please try after sometime.';
                 hidespinner();
             }
+            else if(xhr.status === 401){
+                document.getElementById("show-error").innerText = xhr.responseJSON.message;
+                hidespinner();
+            }
         var resMsg = JSON.parse(xhr.responseText);
-           if(resMsg.isSuccessful === false){
-            document.getElementById("show-error").innerText = resMsg.message;
+           if(resMsg.message === "Incorrect Username/Password"){
+            document.getElementById("show-error").innerHTML = resMsg.message;
            hidespinner();
            
+            }
+            else if(resMsg.message === "Valid Two Factor Secure Code Required, Enter Code Received"){
+                hidespinner();
+                $("#twoFactorOpenPopup").show();
             }
             
         },
@@ -443,6 +461,108 @@ function getAuthenticationToken(user) {
         }
     });
     
+}
+function otpTwoFactorLogin(event){
+    event.preventDefault();
+    for (var key in twoFactorAuthentication) {
+        var selector = getElement(twoFactorAuthentication[key]);
+        if (required(selector)) {
+            // stop if the validator fails
+            return false;
+        }
+    }
+    if (!$(".form-error-msg").is(":visible")) {
+        $(".button-save").append(
+            '<i class="fas fa-circle-notch fa-spin fa-lg"></i>'
+        );
+        $(".button-save span").hide();
+        $(".button-save").attr("disabled", true);
+    event.preventDefault();
+    var values = '#' + $('#getOTP').val();
+    user = {
+        Username: document.getElementById("username").value + values,
+        Password: document.getElementById("password").value,
+    };
+    var settings = {
+        async: true,
+        crossDomain: true,
+        url: config.baseURL + "/api/config/login#",
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        data: JSON.stringify(user),
+        statusCode: {
+         
+            502: function () {
+                $("#twoFactorOpenPopup").hide();
+                //when no content is avaible in API
+                document.getElementById("show-error").innerHTML = "Unable to connect to the server. Please try after sometime.";
+                hideSpinnerTwoFA();
+            } 
+        },
+        error: function (xhr, error) {
+            // disable the loading icon and enable the text in button as well as showing error message
+            $("#twoFactorOpenPopup").hide();
+          
+         if(user.Password === "" && user.Username === "" ){
+                document.getElementById("show-error").innerHTML = 'The Username/Password field is required';
+                hideSpinnerTwoFA();
+            }
+            else if(user.Username === "")
+            {
+                document.getElementById("show-error").innerHTML = 'The Username field is required';
+                hideSpinnerTwoFA();
+            }
+            else if(user.Password === ""){
+                document.getElementById("show-error").innerHTML = 'The Password field is required';
+                hideSpinnerTwoFA();
+            }
+            else if(xhr.status === 502){
+                document.getElementById("show-error").innerHTML = 'Unable to connect to the server. Please try after sometime.';
+                hideSpinnerTwoFA();
+            }
+            else if(xhr.status === 404){
+                
+                document.getElementById("show-error").innerHTML = 'Unable to connect to the server. Please try after sometime.';
+                hideSpinnerTwoFA();
+            }
+            else if(xhr.status === 401){
+                
+                document.getElementById("show-error").innerHTML = xhr.responseJSON.message;
+                hideSpinnerTwoFA();
+            }
+        var resMsg = JSON.parse(xhr.responseJSON);
+        $("#getOTP").val('');
+        $(".form-error-msg").val('');
+        $("#twoFactorOpenPopup").hide();
+           if(resMsg.message === "Invalid OTP"){
+            document.getElementById("show-error").innerHTML = resMsg.message;
+            hideSpinnerTwoFA();
+           
+            }
+            
+        },
+        
+    };
+    $.ajax(settings).done(function (oResponse) {
+        $("#twoFactorOpenPopup").hide();
+        if (oResponse) {
+            //get localStorge token and go to login page
+            document.getElementById("show-error").innerHTML = '';
+            auth_token = oResponse.message;
+            sessionStorage.setItem("Oauth_Token", auth_token);
+            
+            var current = window.location.href;
+            var i = current.lastIndexOf("/");
+            if (i != -1) {
+                current = current.substr(0, i) + "/config-file.html";
+            }
+            window.open(current, "_self");
+            
+        }
+    });
+}
 }
 
 // Create dispatches list in the dropdown select and queue name / queue connection string

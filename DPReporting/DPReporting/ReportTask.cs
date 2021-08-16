@@ -84,7 +84,7 @@ namespace DPReporting
 
             AccountConfiguration a = await via.GetAccountConfiguration();
 
-            var sendOutReport = SetUpReportSender(a);
+            var sendOutReport = SetUpReportSender(a);            
 
             #endregion
 
@@ -92,7 +92,7 @@ namespace DPReporting
             {
                 await RunReportTask(StartDate, reportFor, hourlyDelay, sendOutReport, a);
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
                 log.logMessage += $"Error in report task {ex.Message}    {ex.StackTrace}";
                 return;

@@ -1092,4 +1092,14 @@ namespace XM.ID.Net
         public DateTime CreatedOn { get; set; }
     }
     #endregion
+
+    #region NTLM Email Service
+    public class RequestBody
+    {
+        public string EmailId { get; set; }
+        public string Subject { get; set; }
+        public string TextBody { get; set; }
+        public string HTMLBody { get; set; }
+    }
+    #endregion
 }

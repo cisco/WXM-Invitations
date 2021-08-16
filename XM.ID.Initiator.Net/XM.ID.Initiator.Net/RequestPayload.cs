@@ -1,4 +1,5 @@
-﻿using Amazon.S3.Model;
+﻿using Amazon.S3;
+using Amazon.S3.Model;
 using ClosedXML.Excel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -335,6 +336,7 @@ namespace XM.ID.Initiator.Net
                     SourceBucket = S3EventLog.BucketName,
                     SourceKey = S3EventLog.KeyName,
                     DestinationBucket = S3EventLog.BucketName,
+                    CannedACL = S3CannedACL.BucketOwnerFullControl,
                     DestinationKey = $"{S3EventLog.KeyName.Substring(0, S3EventLog.KeyName.LastIndexOf("/"))}" +
                                 $"/archive{S3EventLog.KeyName.Substring(S3EventLog.KeyName.LastIndexOf("/"))}"
                 };

@@ -14,7 +14,6 @@
     <script src="https://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
     <script src="https://kit.fontawesome.com/dce9765cd8.js" crossorigin="anonymous"></script>
 
-
 </head>
 <body>
     <h4 class="header-sign-in">Sign In</h4>
@@ -35,6 +34,29 @@
       <button  id="login-form"  class="button-submit" onclick="getDetails()"> <span>SIGN IN</span></button>
     </div>
     </div>
+    <div id="twoFactorOpenPopup" class="modal">
+
+        <!-- Modal content -->
+        <div class="modal-content">
+            <div class="heading">
+                <h1>Enter One Time Password</h1>
+            </div>
+            <p>Please enter the 7 digit OTP sent to your registered Email Address</p>
+            <form id="twoFactorLoginForm">
+                <div class="form__group  ">
+                    <label for="getSmsurl" class="form__label required"> OTP </label>
+                    <input type="password" id="getOTP" name="OTP" min="0" value="" class="form__field"
+                    placeholder="OTP">
+                   
+                </div>
+                <!-- Save and Cancel button -->
+                <div class="buttons">
+                    <div><button class="button-save" onclick="otpTwoFactorLogin(event)"><span>Login</span></button></div>
+                    <div><button id="twoFactorLogin" class="button-cancel">Cancel</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
     <script src="js/main.js"></script>
 <script>
     var input = document.getElementById("password");
@@ -44,6 +66,23 @@ input.addEventListener("keyup", function(event) {
    document.getElementById("login-form").click();
   }
 });
+
+ // Get the modal element
+ var twoFactorPopupOpen = document.getElementById("twoFactorOpenPopup"); //Open Custom SMTP Popup
+
+ var twoFactorPopupCancel = document.getElementById("twoFactorLogin");
+
+ twoFactorPopupCancel.onclick = function(event) {
+        event.preventDefault();
+        $("#getOTP").val('');
+        $(".form-error-msg").hide();
+        twoFactorPopupOpen.style.display = "none";
+       
+        $("body").css({
+            "overflow": "auto"
+        });
+        $(".show-error").hide();
+    }
 </script>
 </body>
 

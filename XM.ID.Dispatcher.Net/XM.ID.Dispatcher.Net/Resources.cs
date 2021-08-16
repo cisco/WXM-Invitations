@@ -60,7 +60,10 @@ namespace XM.ID.Dispatcher.Net
             #endregion
 
             #region Miscellaneous Management
-            HttpClient = new HttpClient();
+            HttpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(1)
+            };
             SmtpLock = new object();
             LogLevel = logLevel < 1 ? 1 : logLevel;
             DispatchReadyVendor_CreationStrategies = new Dictionary<string, Func<IDispatchVendor>>()

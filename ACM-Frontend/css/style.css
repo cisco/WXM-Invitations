@@ -692,3 +692,10 @@ margin: 0px 20px 8px 0;
 #reportConfigForm{
     position: relative;
 }
+#twoFactorOpenPopup .modal-content {
+
+    width: 28%;
+}
+#twoFactorOpenPopup .modal-content .buttons {
+    margin-top: 32px;
+}

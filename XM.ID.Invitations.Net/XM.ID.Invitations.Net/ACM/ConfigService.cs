@@ -86,7 +86,13 @@ namespace XM.ID.Invitations.Net
             catch (Exception ex)
             {
                 response.IsSuccessful = false;
-                if (ex.Message == SharedSettings.AdminLoginError)
+                if (ex.Message == WXMService.LoginAPIErrorTwoFactorSecureCode)
+                    response.Message = WXMService.LoginAPIErrorTwoFactorSecureCode;
+                else if (ex.Message == WXMService.InvalidOTP)
+                    response.Message = WXMService.InvalidOTP;
+                else if (ex.Message == WXMService.LoginAPIUserBlocked)
+                    response.Message = WXMService.LoginAPIUserBlocked;
+                else if (ex.Message == SharedSettings.AdminLoginError)
                     response.Message = SharedSettings.AdminLoginError;
                 else
                     response.Message = "Internal Exception";

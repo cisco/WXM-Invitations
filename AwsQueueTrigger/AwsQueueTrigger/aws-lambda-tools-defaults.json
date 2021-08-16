@@ -17,6 +17,6 @@
   "function-description": "",
   "function-role": "[Your provisioned IAM Role's ARN goes here]",
   "tracing-mode": "PassThrough",
-  "environment-variables": "\"DatabaseName\"=\"[Your Database-Name goes here]\";\"MongoDBConnectionString\"=\"[Your Mongo-DB-Connection-String goes here]\"",
+  "environment-variables": "\"DatabaseName\"=\"[Your Database-Name goes here]\";\"MongoDBConnectionString\"=\"[Your Mongo-DB-Connection-String goes here]\";\"ForwardSMTP\"=\"[True/False based on NTML Issue, forward SMTP request to Email Service]\";\"SMTPServiceURL\"=\"[Email Service send mail URL]\"",
   "dead-letter-target-arn": "[Your Dead-Letter-Queue's ARN goes here]"
 }

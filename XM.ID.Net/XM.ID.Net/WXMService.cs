@@ -25,6 +25,11 @@ namespace XM.ID.Net
         private const string GET_DP_BY_ID_API = "/api/DeliveryPlan/";
         private const string GET_QUES_BY_QNR_API = "/api/Questions/Questionnaire";
         private const string GET_LOGIN_TOKEN = "/api/LoginToken";
+        public const string LoginAPIErrorTwoFactor = "two_factor";
+        public const string LoginAPIErrorInvalidSecureCode = "Invalid Two Factor Secure Code, Check For Code Sent To Your Email/Phone Or Contact Your Administrator";
+        public static string LoginAPIErrorTwoFactorSecureCode = "Valid Two Factor Secure Code Required, Enter Code Received";
+        public static string LoginAPIUserBlocked = "Your account has been locked out. Please contact your administrator for a fresh password or try reset password";
+        public static string InvalidOTP = "Invalid OTP";
         private string BASE_URL;
 
         private readonly HttpClient HttpClient;
@@ -47,7 +52,23 @@ namespace XM.ID.Net
             };
             request.Content = new FormUrlEncodedContent(requestPostValues);
             HttpResponseMessage response = await HttpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                string error = await response.Content.ReadAsStringAsync();
+                var errorObject = JsonConvert.DeserializeObject<Dictionary<string, string>>(error);
+                if (errorObject["error"] == LoginAPIErrorTwoFactor &&
+                    errorObject["error_description"] == LoginAPIErrorTwoFactorSecureCode)
+                    throw new System.Exception(LoginAPIErrorTwoFactorSecureCode);
+                else if (errorObject["error"] == LoginAPIErrorTwoFactor &&
+                    errorObject["error_description"] == LoginAPIErrorInvalidSecureCode)
+                    throw new System.Exception(InvalidOTP);
+                else if (errorObject["error"] == "Authorization Error" &&
+                    errorObject["error_description"] == LoginAPIUserBlocked)
+                    throw new System.Exception(LoginAPIUserBlocked);
+                else
+                    return default;
+            }
+            else if (!response.IsSuccessStatusCode)
             {
                 return default;
             }
