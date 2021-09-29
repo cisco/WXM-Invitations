@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Renci.SshNet;
 using SFTPToS3Sync.Helper;
 using System;
@@ -88,7 +89,7 @@ namespace SFTPToS3Sync.Domains
                     if (!Directory.Exists(downloadFolderPath))
                         Directory.CreateDirectory(downloadFolderPath);
                     foreach (var file in files)
-                    {
+                    { 
                         string localFilePath = Path.Combine(downloadFolderPath, file.Name);
                         using Stream fileStream = File.OpenWrite(localFilePath);
                         sftpClient.DownloadFile(file.FullName, fileStream);
@@ -101,8 +102,11 @@ namespace SFTPToS3Sync.Domains
                     }
                     Directory.Delete(downloadFolderPath);
                 }
-
-                sftpClient.Disconnect();
+                if (sftpClient.IsConnected)
+                { 
+                    sftpClient.Disconnect();
+                }
+                sftpClient.Dispose();
             }
             catch (Exception ex)
             {
